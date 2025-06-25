@@ -1,0 +1,19 @@
+# .dockerignore
+# 忽略 Node.js 模組資料夾
+node_modules
+
+# 忽略 npm 除錯日誌
+npm-debug.log
+
+# 忽略 macOS 系統檔案
+.DS_Store
+
+# 忽略 Git 相關檔案和資料夾
+.git
+.gitignore
+
+# 忽略編輯器或 IDE 相關的臨時檔案
+*.log
+*.tmp
+.vscode
+.idea

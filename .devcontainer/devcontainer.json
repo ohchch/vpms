@@ -1,0 +1,38 @@
+// .devcontainer/devcontainer.json
+{
+    // 指定要使用的 Docker Compose 檔案。
+    // 這會告訴 Dev Containers 使用您的 docker-compose.yml 來啟動服務。
+    "dockerComposeFile": [
+        "../docker-compose.yml" // 指向專案根目錄下的 docker-compose.yml
+    ],
+    // 指定在 Docker Compose 服務中哪個服務是您的主要開發容器。
+    // 這裡我們將 'app' 服務（Node.js 應用程式）指定為主要服務。
+    "service": "app",
+    // 告訴 Dev Containers 應將哪個端口從主要服務轉發到本地主機。
+    // 這樣您就可以從瀏覽器訪問 Node.js 應用程式。
+    "workspaceFolder": "/app",
+    "forwardPorts": [3000],
+
+    // 設定遠端用戶，這會影響在容器內執行的命令。
+    // 通常，對於 Node.js 映像檔，'node' 或 'root' 都可以，'node' 更安全。
+    // 這裡我們假設 Node.js 基礎映像的預設用戶是 'node'。
+    "remoteUser": "root",
+
+    // 在容器創建後執行命令。
+    // 這是一個好的地方來安裝額外的工具或執行一次性設定。
+    //"postCreateCommand": "npm install", // 確保所有 Node.js 依賴都已安裝
+
+    // 在 VS Code 附加到容器後安裝擴充功能。
+    // 這些是推薦用於 Node.js 開發的擴充功能。
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",          // ESLint for JavaScript linting
+                "esbenp.prettier-vscode",          // Prettier for code formatting
+                "ms-vscode.vscode-typescript-next", // TypeScript IntelliSense (even for JS files)
+                "ms-azuretools.vscode-docker",      // Docker extension within the dev container
+                "ms-azuretools.vscode-mysql"       // MySQL extension for database management
+            ]
+        }
+    }
+}

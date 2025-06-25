@@ -1,0 +1,27 @@
+# docker-compose.yml
+version: '3.8' # 指定 Docker Compose 檔案格式的版本
+
+services:
+  # Node.js 應用程式服務
+  app:
+    build: . # 從當前目錄的 Dockerfile 構建映像
+    ports:
+      - "3000:3000" # 將主機的 3000 端口映射到容器的 3000 端口
+                    # 這樣您就可以通過 http://localhost:3000 訪問網頁應用程式
+    environment:
+      # 關鍵：將 'MYSQL_HOST' 設置為您另一台電腦的實際 IP 地址
+      # 這個 IP 地址是您的 Docker 宿主機（如果是虛擬機，那就是虛擬機的 IP）可以通過網路訪問到的那台電腦的 IP。
+      # 例如：如果那台電腦的 IP 是 192.168.1.10，就填 '192.168.1.10'。
+      MYSQL_HOST: 172.11.88.82 # <<-- 務必修改為您另一台電腦的 IP 地址！
+      MYSQL_USER: vpmsadmin        # 應用程式連接 MySQL 的用戶名
+      MYSQL_PASSWORD: Vpms@dmin  # 應用程式連接 MySQL 的密碼
+      MYSQL_DATABASE: VPMS    # 根據圖片，資料庫名稱為 'VPMS'
+      MYSQL_PORT: 3306
+    volumes:
+      # 將主機當前目錄掛載到容器的 /app，方便開發時的程式碼更新（可選，生產環境通常不掛載）
+      - .:/app
+      # 確保 node_modules 在容器內獨立，不被主機掛載覆蓋（如果使用上述掛載，這條很重要）
+      - /app/node_modules
+    # 新增這行來覆寫預設命令，啟動一個 shell 而非 npm start
+    command: ["sh", "-c", "tail -f /dev/null"] # 讓容器保持運行，但不執行應用程式
+

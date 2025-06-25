@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Data Charts</title>
+    <!-- 引入 Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            padding: 25px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+            box-sizing: border-box;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 15px;
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(30%, 1fr)); /* 自動調整列數，最小寬度350px */
+            gap: 20px; /* 圖表之間的間距 */
+        }
+        .chart-card {
+            background-color: #ecf0f1;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px; /* 確保每個卡片有最小高度 */
+            overflow: hidden; /* 確保圖表不會超出卡片 */
+        }
+        /* 新增的圖表容器樣式 */
+        .chart-canvas-container {
+            position: relative; /* 為了讓 canvas 的 100% 高度生效 */
+            width: 100%;
+            height: 250px; /* 為圖表容器設定固定高度 */
+            margin-top: 10px; /* 與標題的間距 */
+        }
+        .chart-card canvas {
+            max-width: 100%; /* 確保 canvas 不會超出其父容器 */
+            height: 100%; /* 讓 canvas 填充其新父容器的高度 */
+            width: 100%; /* 讓 canvas 填充其新父容器的寬度 */
+        }
+        .chart-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #34495e;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Real-time Data Chart Display</h1>
+        <div class="chart-grid">
+            <div class="chart-card">
+                <div class="chart-title">Voltage (Va, Vb, Vc)</div>
+                <div class="chart-canvas-container">
+                    <canvas id="voltageChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Current (Ia, Ib, Ic)</div>
+                <div class="chart-canvas-container">
+                    <canvas id="currentChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Pressure (Pres1, Pres2, Pres3)</div>
+                <div class="chart-canvas-container">
+                    <canvas id="pressureChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Vibration (Vibx, Viby, Vibz)</div>
+                <div class="chart-canvas-container">
+                    <canvas id="vibrationChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Temperature (Pt)</div>
+                <div class="chart-canvas-container">
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">More Data (To be developed)</div>
+                <!-- More charts can be placed here in the future -->
+            </div>
+        </div>
+        <!-- New button container -->
+        <div class="button-container" style="text-align: center; margin-top: 25px;">
+            <a href="index.html" style="
+                background-color: #007bff; /* Button color */
+                color: white;
+                padding: 12px 25px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 1.1em;
+                transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                text-decoration: none; /* Remove link underline */
+                display: inline-block; /* Make margin-left effective */
+            ">Back to Data Display Page</a>
+        </div>
+    </div>
+
+    <script>
+        // 用於儲存所有圖表實例的物件
+        let chartInstances = {
+            voltage: null,
+            current: null,
+            pressure: null,
+            vibration: null,
+            temperature: null
+        };
+
+        async function fetchAndRenderAllChartsData() {
+            try {
+                // 獲取最新 100 條數據，並按時間降序排列 (最新數據在前面)
+                const response = await fetch('/api/data?limit=100&orderBy=DESC');
+                if (!response.ok) {
+                    console.error("Fetch response not OK:", response.status, response.statusText);
+                    throw new Error(`HTTP 錯誤！狀態碼: ${response.status}`);
+                }
+                const result = await response.json();
+                console.log("從後端獲取的原始數據:", result);
+                
+                const chartData = result.data.reverse(); // Charts need time to increase from left to right
+                console.log("處理後用於圖表的數據 (已反轉):", chartData);
+
+                if (chartData.length > 0) {
+                    // 修改這裡：使用 UTC 相關的方法來格式化時間，避免本地時區轉換
+                    const labels = chartData.map(item => {
+                        const date = new Date(item.datetime_insert);
+                        const year = date.getUTCFullYear();
+                        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                        const day = String(date.getUTCDate()).padStart(2, '0');
+                        const hours = String(date.getUTCHours()).padStart(2, '0');
+                        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+                        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+                        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+                    });
+
+                    // 電壓數據
+                    const vaData = chartData.map(item => item.va);
+                    const vbData = chartData.map(item => item.vb);
+                    const vcData = chartData.map(item => item.vc);
+
+                    // 電流數據
+                    const iaData = chartData.map(item => item.ia);
+                    const ibData = chartData.map(item => item.ib);
+                    const icData = chartData.map(item => item.ic);
+
+                    // 壓力數據
+                    const pres1Data = chartData.map(item => item.pres1);
+                    const pres2Data = chartData.map(item => item.pres2);
+                    const pres3Data = chartData.map(item => item.pres3);
+
+                    // 震動數據
+                    const vibxData = chartData.map(item => item.vibx);
+                    const vibyData = chartData.map(item => item.viby);
+                    const vibzData = chartData.map(item => item.vibz);
+
+                    // 溫度數據
+                    const ptData = chartData.map(item => item.pt);
+
+
+                    // --- 電壓圖表 ---
+                    if (chartInstances.voltage) {
+                        chartInstances.voltage.data.labels = labels;
+                        chartInstances.voltage.data.datasets[0].data = vaData;
+                        chartInstances.voltage.data.datasets[1].data = vbData;
+                        chartInstances.voltage.data.datasets[2].data = vcData;
+                        chartInstances.voltage.update();
+                    } else {
+                        const ctx = document.getElementById('voltageChart').getContext('2d');
+                        chartInstances.voltage = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'Va', data: vaData, borderColor: 'rgb(75, 192, 192)', tension: 0.1, fill: false },
+                                    { label: 'Vb', data: vbData, borderColor: 'rgb(255, 99, 132)', tension: 0.1, fill: false },
+                                    { label: 'Vc', data: vcData, borderColor: 'rgb(54, 162, 235)', tension: 0.1, fill: false }
+                                ]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                scales: { x: { type: 'category', title: { display: true, text: 'Time' } }, y: { title: { display: true, text: 'Voltage (V)' }, min: 251, max: 253 } },
+                                plugins: { tooltip: { mode: 'index', intersect: false } }
+                            }
+                        });
+                    }
+
+                    // --- 電流圖表 ---
+                    if (chartInstances.current) {
+                        chartInstances.current.data.labels = labels;
+                        chartInstances.current.data.datasets[0].data = iaData;
+                        chartInstances.current.data.datasets[1].data = ibData;
+                        chartInstances.current.data.datasets[2].data = icData;
+                        chartInstances.current.update();
+                    } else {
+                        const ctx = document.getElementById('currentChart').getContext('2d');
+                        chartInstances.current = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'Ia', data: iaData, borderColor: 'rgb(255, 159, 64)', tension: 0.1, fill: false },
+                                    { label: 'Ib', data: ibData, borderColor: 'rgb(255, 205, 86)', tension: 0.1, fill: false },
+                                    { label: 'Ic', data: icData, borderColor: 'rgb(75, 192, 192)', tension: 0.1, fill: false }
+                                ]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                scales: { x: { type: 'category', title: { display: true, text: 'Time' } }, y: { title: { display: true, text: 'Current (A)' }, min: 0, max: 50 } }, // Assume current range
+                                plugins: { tooltip: { mode: 'index', intersect: false } }
+                            }
+                        });
+                    }
+
+                    // --- 壓力圖表 ---
+                    if (chartInstances.pressure) {
+                        chartInstances.pressure.data.labels = labels;
+                        chartInstances.pressure.data.datasets[0].data = pres1Data;
+                        chartInstances.pressure.data.datasets[1].data = pres2Data;
+                        chartInstances.pressure.data.datasets[2].data = pres3Data;
+                        chartInstances.pressure.update();
+                    } else {
+                        const ctx = document.getElementById('pressureChart').getContext('2d');
+                        chartInstances.pressure = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'Pres1', data: pres1Data, borderColor: 'rgb(153, 102, 255)', tension: 0.1, fill: false },
+                                    { label: 'Pres2', data: pres2Data, borderColor: 'rgb(201, 203, 207)', tension: 0.1, fill: false },
+                                    { label: 'Pres3', data: pres3Data, borderColor: 'rgb(255, 99, 132)', tension: 0.1, fill: false }
+                                ]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                scales: { x: { type: 'category', title: { display: true, text: 'Time' } }, y: { title: { display: true, text: 'Pressure (kPa)' }, min: 257, max: 257.5 } }, // Assume pressure range
+                                plugins: { tooltip: { mode: 'index', intersect: false } }
+                            }
+                        });
+                    }
+
+                    // --- 震動圖表 ---
+                    if (chartInstances.vibration) {
+                        chartInstances.vibration.data.labels = labels;
+                        chartInstances.vibration.data.datasets[0].data = vibxData;
+                        chartInstances.vibration.data.datasets[1].data = vibyData;
+                        chartInstances.vibration.data.datasets[2].data = vibzData;
+                        chartInstances.vibration.update();
+                    } else {
+                        const ctx = document.getElementById('vibrationChart').getContext('2d');
+                        chartInstances.vibration = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'VibX', data: vibxData, borderColor: 'rgb(54, 162, 235)', tension: 0.1, fill: false },
+                                    { label: 'VibY', data: vibyData, borderColor: 'rgb(255, 99, 132)', tension: 0.1, fill: false },
+                                    { label: 'VibZ', data: vibzData, borderColor: 'rgb(75, 192, 192)', tension: 0.1, fill: false }
+                                ]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                scales: { x: { type: 'category', title: { display: true, text: 'Time' } }, y: { title: { display: true, text: 'Vibration' }, min: 0, max: 10 } }, // Assume vibration range
+                                plugins: { tooltip: { mode: 'index', intersect: false } }
+                            }
+                        });
+                    }
+
+                    // --- 溫度圖表 ---
+                    if (chartInstances.temperature) {
+                        chartInstances.temperature.data.labels = labels;
+                        chartInstances.temperature.data.datasets[0].data = ptData;
+                        chartInstances.temperature.update();
+                    } else {
+                        const ctx = document.getElementById('temperatureChart').getContext('2d');
+                        chartInstances.temperature = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'Pt', data: ptData, borderColor: 'rgb(255, 99, 132)', tension: 0.1, fill: false }
+                                ]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                scales: { x: { type: 'category', title: { display: true, text: 'Time' } }, y: { title: { display: true, text: 'Temperature (°C)' }, min: 0, max: 100 } }, // Assume temperature range
+                                plugins: { tooltip: { mode: 'index', intersect: false } }
+                            }
+                        });
+                    }
+
+                } else {
+                    console.warn("No data to display charts.");
+                    // 如果沒有資料，可以考慮清除所有圖表或顯示訊息
+                    for (const key in chartInstances) {
+                        if (chartInstances[key]) {
+                            chartInstances[key].data.labels = [];
+                            chartInstances[key].data.datasets.forEach(dataset => {
+                                dataset.data = [];
+                            });
+                            chartInstances[key].update();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching chart data:", error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 首次載入時獲取並渲染所有圖表
+            fetchAndRenderAllChartsData();
+
+            // 每秒更新一次所有圖表
+            setInterval(fetchAndRenderAllChartsData, 1000); // 1000 毫秒 = 1 秒
+        });
+    </script>
+</body>
+</html>

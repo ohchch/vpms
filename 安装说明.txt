@@ -1,0 +1,112 @@
+**應用程式使用手冊**
+
+本手冊將指導您如何在您的電腦上運行基於 Docker 的 Node.js 應用程式。您不需要安裝任何程式碼編輯器 (IDE)。
+
+**一、準備工作**
+
+1.  **安裝 Docker Desktop**重要步驟！
+    *   在您的電腦上，您需要安裝 **Docker Desktop**。這是運行本應用程式的必要工具。
+    *   請從這裡下載並安裝 Docker Desktop：
+        https://www.docker.com/products/docker-desktop/
+    *   安裝完成後，請啟動 Docker Desktop。您可能會在右下角 (Windows) 或右上角 (macOS) 的系統托盤看到 Docker 的鯨魚圖示。
+
+2.  **獲取應用程式檔案**
+    *   您將收到一個包含應用程式所有必要檔案的資料夾 (例如，名稱可能是 `vpms-app` 或類似的)。
+    *   請將這個資料夾解壓縮到您電腦上一個容易找到的位置，例如桌面或您的文件夾中。
+    *   **重要：** 請不要更改此資料夾內任何檔案的名稱或移動它們的位置。
+
+**二、配置資料庫連接 (重要步驟！)**
+
+本應用程式需要連接到一個 MySQL 資料庫。您需要根據您自己的 MySQL 資料庫設定來修改一個檔案。
+
+1.  **找到 `server.js` 檔案：**
+    *   進入您剛才解壓縮的應用程式資料夾。
+    *   找到並打開名為 `server.js` 的檔案。您可以使用任何文字編輯器打開它，例如 Windows 的記事本 (Notepad) 或 macOS 的 TextEdit。
+
+2.  **修改資料庫配置：**
+    *   在 `server.js` 檔案中，找到類似下面這一段的程式碼：
+        ```javascript
+        const dbConfig = {
+            host: process.env.MYSQL_HOST || '172.11.88.82', // <<-- 務必修改為您另一台電腦的 IP 地址！
+            user: process.env.MYSQL_USER || 'vpmsadmin',
+            password: process.env.PASSWORD || 'Vpms@dmin',
+            database: process.env.MYSQL_DATABASE || 'VPMS',
+            port: process.env.MYSQL_PORT || 3306
+        };
+        ```
+    *   **根據您的實際情況修改以下行：**
+        *   `host`:
+            *   如果您的 MySQL 資料庫就在您運行這個應用程式的同一台電腦上 (但不是在 Docker 容器內部運行)，請將 `'172.11.88.82'` 改為 `'127.0.0.1'` 或 `'localhost'`。
+            *   如果您的 MySQL 資料庫在另一台不同的電腦上，請將 `'172.11.88.82'` 改為那台電腦的實際 IP 地址 (例如：`'192.168.1.100'`)。
+        *   `user`: 將 `'vpmsadmin'` 改為您 MySQL 資料庫的用戶名。
+        *   `password`: 將 `'Vpms@dmin'` 改為您 MySQL 資料庫用戶的密碼。
+        *   `database`: 將 `'VPMS'` 改為您要連接的 MySQL 資料庫名稱。
+        *   `port`: 如果您的 MySQL 使用的不是預設的 3306 端口，請更改此值。
+
+3.  **保存 `server.js` 檔案。**
+
+**三、運行應用程式**
+
+1.  **打開命令提示字元 (Windows) 或終端機 (macOS/Linux)：**
+    *   **Windows:** 在開始菜單搜尋「cmd」並打開「命令提示字元」。
+    *   **macOS:** 在「應用程式」->「工具程式」中找到並打開「終端機」。
+
+2.  **導航到應用程式資料夾：**
+    *   在命令提示字元/終端機中，輸入以下命令，然後按 Enter：
+        ```bash
+        cd /path/to/您的應用程式資料夾
+        ```
+        (請將 `/path/to/您的應用程式資料夾` 替換為您在第一步中解壓縮的資料夾的實際路徑。例如：`cd C:\Users\YourName\Desktop\vpms-app`)
+
+3.  **構建並啟動應用程式：**
+    *   在命令提示字元/終端機中，輸入以下命令，然後按 Enter：
+        ```bash
+        docker-compose up -d --build
+        ```
+    *   **首次運行時：** 這個過程會需要一些時間，因為 Docker 會下載必要的組件，然後構建應用程式。請耐心等待，直到您看到命令提示字元重新出現。
+    *   `--build` 參數會確保 Docker 重新構建應用程式，這在您第一次運行或修改 `server.js` 等程式碼後是必要的。
+
+4.  **確認應用程式正在運行 (可選)：**
+    *   輸入以下命令並按 Enter：
+        ```bash
+        docker-compose ps
+        ```
+    *   您應該會看到一個列表，其中包含名為 `vpms-app_app_1` (或類似名稱) 的服務，其狀態應該是 `Up`。
+
+**四、訪問應用程式**
+
+1.  **打開您的網頁瀏覽器** (例如 Chrome, Firefox, Edge)。
+
+2.  **在網址列中輸入以下網址並按 Enter：**
+    ```
+    http://localhost:3000/index.html
+    ```
+
+    如果一切設置正確，您應該能在瀏覽器中看到應用程式的介面，並顯示從您的 MySQL 資料庫中讀取的資料。
+
+**五、停止應用程式 (當您不再需要運行時)**
+
+當您完成應用程式的使用後，您可以停止它以釋放系統資源。
+
+1.  **回到您運行 `docker-compose up` 的命令提示字元或終端機。**
+2.  **輸入以下命令並按 Enter：**
+    ```bash
+    docker-compose down
+    ```
+    這將停止並移除由 `docker-compose` 啟動的所有容器。
+
+**六、常見問題與故障排除**
+
+*   **應用程式無法啟動 / 瀏覽器顯示錯誤訊息：**
+    *   **檢查 Docker Desktop 是否正在運行。**
+    *   **檢查 `server.js` 中的資料庫連接配置是否正確。** 特別是 `host`、`user`、`password` 和 `database`。任何一個錯誤都可能導致連線失敗。
+    *   **確認您的 MySQL 資料庫是否正在運行。**
+    *   **檢查防火牆：** 如果您的 MySQL 資料庫在另一台電腦上，請確保那台電腦的防火牆 (例如 Windows Defender 防火牆) 允許對 MySQL 端口 3306 的入站連線。
+    *   **重新構建並啟動：** 如果您修改了 `server.js` 或其他任何應用程式檔案，請務必運行 `docker-compose down` 然後 `docker-compose up -d --build` 來重新構建和啟動。
+    *   **查看 Docker 日誌：** 如果應用程式啟動失敗，您可以嘗試運行 `docker-compose logs` 來查看詳細的錯誤訊息，這可能有助於找出問題。
+
+*   **「沒有資料可顯示」或資料不正確：**
+    *   **確認 `server.js` 中的 `database` 和 `tbl_ndas1` 表格名稱是否正確。**
+    *   **確認您的 `VPMS` 資料庫中是否存在名為 `tbl_ndas1` 的表格，並且其中有資料。**
+
+如果您遇到任何持續的問題，請將您在命令提示字元/終端機中看到的錯誤訊息提供給應用程式的提供者。
