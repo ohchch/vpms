@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Link to the main CSS file to apply styles -->
+    <link rel="stylesheet" href="main.css">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* 防止在极端情况下出现滚动条 */
+        }
+        /* --- 新增样式 --- */
+        header {
+            display: flex;
+            justify-content: space-between; /* 两端对齐 */
+            align-items: center; /* 垂直居中 */
+            padding: 5px 20px; /* 调整内边距 */
+            box-sizing: border-box;
+            width: 100%;
+            background-color: #4f40c5; /* 修改：背景颜色 */
+        }
+        .header-left {
+            display: flex;
+            flex-direction: column; /* 垂直排列 Logo 和公司名 */
+            align-items: center; /* 水平居中 */
+        }
+        .logo {
+            height: 92px; /* 根据您的 Logo 调整高度 */
+            width: auto;
+        }
+        .company-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #f8f9fa; /* 修改：文字颜色为亮色系以保证对比度 */
+            margin-top: 2px;
+        }
+        /* --- 新增样式结束 --- */
+        /* --- 新增：覆盖导航链接颜色 --- */
+        nav ul li a {
+            color: #f8f9fa; /* 修改：文字颜色为亮色系 */
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <!-- 左侧 Logo 和公司名 -->
+        <div class="header-left">
+            <!-- 请将 src 替换为您自己的 Logo 图片路径 -->
+            <img src="logo.png" alt="Company Logo" class="logo">
+            <span class="company-name">iVACS (Intelligent Vacuum Analytics & Control System)</span>
+        </div>
+
+        <!-- 右侧导航栏 (原 h1 已被移除) -->
+        <nav>
+            <ul>
+                <li><a href="index.html" target="_top">Data List</a></li>
+                <li><a href="dashboard.html" target="_top">Dashboard</a></li>
+                <li><a href="charts.html" target="_top">Real-time Charts</a></li>
+                <li><a href="settings.html" target="_top">Alarm Settings</a></li>
+            </ul>
+        </nav>
+    </header>
+</body>
+</html>

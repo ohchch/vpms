@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <!-- Include Raphael.js and JustGage.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.6.1/justgage.min.js"></script>
+    <!-- Include Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Link to the external CSS file -->
+    <link rel="stylesheet" href="main.css">
+    <style>
+        /* Add basic styling for the header and clock */
+        .dashboard-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between; /* Distribute space between title and clock */
+            margin-bottom: 20px; /* Add some space below the header */
+        }
+
+        .dashboard-header h1 {
+            margin: 0; /* Remove default margin */
+        }
+
+        .run-time-clock {
+            font-size: 1.2em; /* Adjust size as needed */
+            font-weight: bold;
+            color: #555; /* Adjust color as needed */
+        }
+
+        /* --- 新增：Dashboard 页面特有的样式 --- */
+        .chart-header {
+            display: flex;
+            justify-content: space-between; /* 让标题和按钮组左右对齐 */
+            align-items: center; /* 垂直居中对齐 */
+            margin-bottom: 10px; /* 标题和图表之间的间距 */
+        }
+        .time-range-buttons button {
+            margin-left: 8px; /* 按钮之间的间距 */
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s, border-color 0.2s, color 0.2s; /* 添加过渡效果 */
+        }
+        .time-range-buttons button:hover {
+            background-color: #e0e0e0;
+        }
+        .time-range-buttons button.active {
+            background-color: #007bff; /* 选中状态的背景色 */
+            color: white; /* 选中状态的文字颜色 */
+            border-color: #007bff; /* 选中状态的边框颜色 */
+        }
+        /* --- 新增结束 --- */
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <object type="text/html" data="header.html" style="width:100%;border: none;"></object>
+
+    <aside style="display: none;">
+        <!-- Sidebar Navigation (uncomment display: none if needed) -->
+        <nav>
+            <ul>
+                <li><a href="#">Overview</a></li>
+                <li><a href="#">User Analysis</a></li>
+                <li><a href="#">Sales Report</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h1>Dashboard Overview</h1>
+            <div id="runTimeClock" class="run-time-clock">Loading...</div>
+        </div>
+        <!-- Main content area for KPI cards, charts, tables, etc. -->
+        <!-- Gauge Area -->
+        <section class="gauge-grid">
+            <div class="gauge-container">
+                <div class="gauge-title">Voltage Va (V)</div>
+                <div id="voltageVaGauge" class="gauge"></div>
+            </div>
+            <div class="gauge-container">
+                <div class="gauge-title">Voltage Vb (V)</div>
+                <div id="voltageVbGauge" class="gauge"></div>
+            </div>
+            <div class="gauge-container">
+                <div class="gauge-title">Voltage Vc (V)</div>
+                <div id="voltageVcGauge" class="gauge"></div>
+            </div>
+            <!-- Ia, Ib, Ic Gauges -->
+            <div class="gauge-container">
+                <div class="gauge-title">Current Ia (A)</div>
+                <div id="currentIaGauge" class="gauge"></div>
+            </div>
+            <div class="gauge-container">
+                <div class="gauge-title">Current Ib (A)</div>
+                <div id="currentIbGauge" class="gauge"></div>
+            </div>
+            <div class="gauge-container">
+                <div class="gauge-title">Current Ic (A)</div>
+                <div id="currentIcGauge" class="gauge"></div>
+            </div>
+            <!-- Power Gauge -->
+            <div class="gauge-container">
+                <div class="gauge-title">Power (kW)</div>
+                <div id="powerGauge" class="gauge"></div>
+            </div>
+            <!-- Energy Gauge -->
+            <div class="gauge-container">
+                <div class="gauge-title">Energy (kWh)</div>
+                <div id="energyGauge" class="gauge"></div>
+            </div>
+            <!-- Temperature Gauge -->
+            <div class="gauge-container">
+                <div class="gauge-title">Temperature (℃)</div>
+                <div id="temperatureGauge" class="gauge"></div>
+            </div>
+            <!-- Vacuum Gauge -->
+            <div class="gauge-container">
+                <div class="gauge-title">Vacuum (Torr)</div>
+                <div id="vacuumGauge" class="gauge"></div>
+            </div>
+            <!-- Removed Vibration JustGage containers -->
+            <!--
+            <div class="gauge-container">
+                <div class="gauge-title">Vibration VibX (mm/s)</div>
+                <div id="vibrationXGauge" class="gauge"></div>
+            </div>
+            <div class="gauge-container">
+                <div class="gauge-title">Vibration VibY (mm/s)</div>
+                <div id="vibrationYGauge" class="gauge"></div>
+            </div>
+            <div class="gauge-container">
+                <div class="gauge-title">Vibration VibZ (mm/s)</div>
+                <div id="vibrationZGauge" class="gauge"></div>
+            </div>
+            -->
+        </section>
+
+        <!-- Chart Section for Vibration Data -->
+        <section class="chart-section">
+             <div class="chart-header"> <!-- 新增：图表头部容器 -->
+                 <h2>Vibration Data (mm/s)</h2>
+                 <div class="time-range-buttons"> <!-- 新增：时间范围按钮容器 -->
+                     <button id="btn1Min">1 Min</button>
+                     <button id="btn10Min">10 Min</button>
+                     <button id="btn30Min">30 Min</button>
+                     <button id="btn1Hour">1 Hour</button>
+                 </div>
+             </div>
+             <div class="chart-card">
+                 <div class="chart-canvas-container">
+                     <canvas id="vibrationChart"></canvas>
+                 </div>
+             </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <object type="text/html" data="footer.html" style="width:100%; height:120px; border: none;"></object>
+
+    <script>
+        // Initialize gauge variables
+        let voltageVaGauge, voltageVbGauge, voltageVcGauge;
+        // Ia, Ib, Ic gauge variables
+        let currentIaGauge, currentIbGauge, currentIcGauge;
+        // Power, Energy, Temperature gauge variables
+        let powerGauge, energyGauge, temperatureGauge;
+        // Vacuum gauge variable
+        let vacuumGauge;
+        // Chart.js Vibration chart instance variable
+        let vibrationChartInstance = null;
+
+        // Record the start time of the system (earliest time from database or after a breakpoint)
+        let systemStartTime = null;
+        let runTimeInterval;
+
+        // --- 新增：当前振动图表的时间范围变量 ---
+        let currentVibrationTimeRange = 'all'; // 默认显示所有数据或一个大范围
+        // --- 新增结束 ---
+
+        // Format time as HH:MM:SS
+        function formatTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        // Update the run time display
+        function updateRunTimeDisplay() {
+            const runTimeElement = document.getElementById('runTimeClock');
+            if (!runTimeElement) return;
+
+            if (systemStartTime) {
+                const now = new Date();
+                const elapsedMilliseconds = now - systemStartTime;
+                const elapsedSeconds = Math.floor(elapsedMilliseconds / 1000);
+                runTimeElement.textContent = formatTime(elapsedSeconds);
+            } else {
+                runTimeElement.textContent = "Waiting for data...";
+            }
+        }
+
+        // Fetch the timestamp of the oldest record from the database or detect a breakpoint as the system start time
+        async function fetchSystemStartTime() {
+            const runTimeElement = document.getElementById('runTimeClock');
+            if (!runTimeElement) return;
+            runTimeElement.textContent = "Loading..."; // Initial state
+
+            try {
+                // Step 1: Try to get the absolute oldest record
+                // Assuming the backend API supports orderBy=ASC
+                const oldestResponse = await fetch('/api/data?limit=1&orderBy=ASC');
+                if (!oldestResponse.ok) {
+                    // Log error but continue to check recent data
+                    console.error(`Error fetching oldest data: ${oldestResponse.status}`);
+                } else {
+                    const oldestResult = await oldestResponse.json();
+                    if (oldestResult.data && oldestResult.data.length > 0 && oldestResult.data[0].datetime_insert) {
+                        systemStartTime = new Date(oldestResult.data[0].datetime_insert);
+                        console.log("Initial system start time from oldest record:", systemStartTime);
+                    } else {
+                         console.warn("No oldest data found or datetime_insert missing.");
+                    }
+                }
+
+                // Step 2: Fetch recent data to check for breakpoints
+                const recentLimit = 200; // Number of recent points to check
+                // Define a significant gap threshold (e.g., if data is every second, a 10-second gap is significant)
+                const gapThresholdSeconds = 10;
+
+                const recentResponse = await fetch(`/api/data?limit=${recentLimit}&orderBy=DESC`);
+                if (!recentResponse.ok) {
+                     const errorData = await recentResponse.json();
+                     // If fetching recent data fails, and we didn't get an oldest time, throw error
+                     if (!systemStartTime) {
+                         throw new Error(`HTTP error! Status code: ${recentResponse.status}. Details: ${errorData.error || 'Unknown error'}`);
+                     } else {
+                         console.error(`Error fetching recent data: ${recentResponse.status}. Details: ${errorData.error || 'Unknown error'}`);
+                         // If oldest time was fetched, proceed with that
+                     }
+                } else {
+                    const recentResult = await recentResponse.json();
+                    const recentDataPoints = recentResult.data;
+
+                    if (recentDataPoints && recentDataPoints.length > 1) { // Need at least 2 points to check for a gap
+                        // Sort recent data by time ascending
+                        recentDataPoints.sort((a, b) => new Date(a.datetime_insert) - new Date(b.datetime_insert));
+
+                        let foundBreakpoint = false;
+                        // Iterate from the second point to check the gap with the previous one
+                        for (let i = 1; i < recentDataPoints.length; i++) {
+                            const time1 = new Date(recentDataPoints[i-1].datetime_insert);
+                            const time2 = new Date(recentDataPoints[i].datetime_insert);
+                            const timeDiffSeconds = (time2 - time1) / 1000;
+
+                            if (timeDiffSeconds > gapThresholdSeconds) {
+                                // Found a significant gap, the start time is the timestamp after the gap
+                                systemStartTime = time2;
+                                console.log("Breakpoint found. System start time updated to:", systemStartTime);
+                                foundBreakpoint = true;
+                                // We found the *latest* breakpoint in this recent window, so this is the start of the current session.
+                                break;
+                            }
+                        }
+
+                        // If no breakpoint found in recent data, and we didn't get an absolute oldest,
+                        // use the earliest time in the recent window as the best available start time estimate.
+                        // This case is less likely if the absolute oldest query succeeded, but good as a fallback.
+                        // Also, if a breakpoint was found, systemStartTime is already updated.
+                        if (!foundBreakpoint && !systemStartTime && recentDataPoints[0].datetime_insert) {
+                             systemStartTime = new Date(recentDataPoints[0].datetime_insert);
+                             console.log("No breakpoint found in recent data and no oldest record. Using earliest recent timestamp as start time:", systemStartTime);
+                        }
+
+                    } else if (recentDataPoints && recentDataPoints.length === 1) {
+                         // Only one data point in recent fetch, use its timestamp if no absolute oldest was found
+                         if (!systemStartTime && recentDataPoints[0].datetime_insert) {
+                             systemStartTime = new Date(recentDataPoints[0].datetime_insert);
+                             console.log("Only one recent data point. Using its timestamp as start time:", systemStartTime);
+                         }
+                    } else {
+                        console.warn("Not enough recent data points to check for breakpoints.");
+                        // If no recent data and no absolute oldest, systemStartTime remains null
+                    }
+                }
+
+
+                // Step 3: Start the clock if systemStartTime is determined
+                if (systemStartTime) {
+                    updateRunTimeDisplay(); // Initial display
+                    // Clear any existing interval before starting a new one
+                    if (runTimeInterval) {
+                        clearInterval(runTimeInterval);
+                    }
+                    runTimeInterval = setInterval(updateRunTimeDisplay, 1000);
+                } else {
+                    runTimeElement.textContent = "Could not determine start time";
+                }
+
+
+            } catch (error) {
+                console.error("Failed to fetch system start time:", error);
+                runTimeElement.textContent = "Error fetching time";
+            }
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize gauges
+            voltageVaGauge = new JustGage({
+                id: "voltageVaGauge", value: 0, min: 0, max: 300, title: "Voltage Va", label: "V", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            voltageVbGauge = new JustGage({
+                id: "voltageVbGauge", value: 0, min: 0, max: 300, title: "Voltage Vb", label: "V", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            voltageVcGauge = new JustGage({
+                id: "voltageVcGauge", value: 0, min: 0, max: 300, title: "Voltage Vc", label: "V", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            currentIaGauge = new JustGage({
+                id: "currentIaGauge", value: 0, min: 0, max: 100, title: "Current Ia", label: "A", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            currentIbGauge = new JustGage({
+                id: "currentIbGauge", value: 0, min: 0, max: 100, title: "Current Ib", label: "A", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            currentIcGauge = new JustGage({
+                id: "currentIcGauge", value: 0, min: 0, max: 100, title: "Current Ic", label: "A", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            powerGauge = new JustGage({
+                id: "powerGauge", value: 0, min: 0, max: 50, title: "Power", label: "kW", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            energyGauge = new JustGage({
+                id: "energyGauge", value: 0, min: 0, max: 1000, title: "Energy", label: "kWh", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            temperatureGauge = new JustGage({
+                id: "temperatureGauge", value: 0, min: 0, max: 100, title: "Temperature", label: "℃", pointer: true, gaugeWidthScale: 0.6, counter: true, hideMinMax: true, valueFontColor: "#333", decimals: 2
+            });
+            vacuumGauge = new JustGage({
+                id: "vacuumGauge",
+                value: 0.00023, // Initial value set to min
+                min: 0.00023, // Torr - Adjust min/max based on expected pres1 range
+                max: 1000, // Torr - Adjust min/max based on expected pres1 range
+                title: "Vacuum",
+                label: "Torr",
+                pointer: true,
+                gaugeWidthScale: 0.6,
+                counter: true,
+                hideMinMax: false, // Show min/max range
+                valueFontColor: "#333", // Ensure value is visible
+                valueFontFunction: function(value) {
+                    // --- 修改：统一显示为两位小数 ---
+                    return parseFloat(value).toFixed(2);
+                    // --- 原始代码 (已注释，如果需要恢复可以取消注释) ---
+                    // if (value < 1) {
+                    //      return parseFloat(value).toExponential(2); // Example: 1.23e-4
+                    // } else if (value < 10) {
+                    //      return parseFloat(value).toFixed(3);
+                    // }
+                    // else {
+                    //     return parseFloat(value).toFixed(1);
+                    // }
+                    // --- 修改结束 ---
+                }
+            });
+
+            // Fetch system start time and start the clock
+            fetchSystemStartTime();
+
+            // --- 新增：为时间范围按钮添加事件监听器 ---
+            document.getElementById('btn1Min').addEventListener('click', () => {
+                currentVibrationTimeRange = '1min';
+                updateActiveButton('btn1Min'); // 更新按钮激活状态
+                fetchDataAndDisplay();
+            });
+            document.getElementById('btn10Min').addEventListener('click', () => {
+                currentVibrationTimeRange = '10min';
+                updateActiveButton('btn10Min');
+                fetchDataAndDisplay();
+            });
+            document.getElementById('btn30Min').addEventListener('click', () => {
+                currentVibrationTimeRange = '30min';
+                updateActiveButton('btn30Min');
+                fetchDataAndDisplay();
+            });
+            document.getElementById('btn1Hour').addEventListener('click', () => {
+                currentVibrationTimeRange = '1hour';
+                updateActiveButton('btn1Hour');
+                fetchDataAndDisplay();
+            });
+
+            // 默认激活 'all' 状态（虽然没有 'all' 按钮，但可以模拟）
+            // 或者在页面加载时，默认选择一个时间范围，例如 '1hour'
+            updateActiveButton('btn1Hour'); // 假设默认显示1小时数据
+            currentVibrationTimeRange = '1hour'; // 设置初始时间范围
+            // --- 新增结束 ---
+
+            // Periodically fetch latest data and update gauges and charts
+            fetchDataAndDisplay(); // Fetch data on initial load
+            setInterval(fetchDataAndDisplay, 2000); // Update every 2 seconds
+        });
+
+        // Optional: Clear interval when the page is unloaded
+        window.addEventListener('beforeunload', () => {
+            if (runTimeInterval) {
+                clearInterval(runTimeInterval);
+            }
+        });
+
+        // --- 新增：更新按钮激活状态的函数 ---
+        function updateActiveButton(activeButtonId) {
+            const buttons = document.querySelectorAll('.time-range-buttons button');
+            buttons.forEach(button => {
+                if (button.id === activeButtonId) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+        }
+        // --- 新增结束 ---
+
+        /**
+         * Fetches the latest data from the backend API and updates gauges and charts.
+         * Modified to fetch multiple data points to support line charts and time range filtering.
+         */
+        async function fetchDataAndDisplay() {
+            try {
+                let queryString = '/api/data?';
+                const params = [];
+                const now = new Date();
+                let startDate = null;
+                let endDate = now; // 结束日期始终是当前时间
+
+                // 根据选定的时间范围确定开始日期
+                switch (currentVibrationTimeRange) {
+                    case '1min':
+                        startDate = new Date(now.getTime() - 60 * 1000);
+                        break;
+                    case '10min':
+                        startDate = new Date(now.getTime() - 10 * 60 * 1000);
+                        break;
+                    case '30min':
+                        startDate = new Date(now.getTime() - 30 * 60 * 1000);
+                        break;
+                    case '1hour':
+                        startDate = new Date(now.getTime() - 60 * 60 * 1000);
+                        break;
+                    case 'all': // 默认或初始加载，获取大量最新数据点
+                    default:
+                        params.push('limit=10000'); // 获取最新的10000个数据点
+                        params.push('orderBy=DESC'); // 对于最新数据点，降序排列是合适的
+                        // 在这种情况下，不设置 startDate/endDate，依赖 limit
+                        break;
+                }
+
+                if (startDate) {
+                    // 格式化日期时间以便后端 API 使用 (YYYY-MM-DD 和 HH:MM)
+                    const formatDateTime = (date) => {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        return {
+                            date: `${year}-${month}-${day}`,
+                            time: `${hours}:${minutes}`
+                        };
+                    };
+
+                    const formattedStartDate = formatDateTime(startDate);
+                    const formattedEndDate = formatDateTime(endDate);
+
+                    params.push(`startDate=${formattedStartDate.date}`);
+                    params.push(`startTime=${formattedStartDate.time}`);
+                    params.push(`endDate=${formattedEndDate.date}`);
+                    params.push(`endTime=${formattedEndDate.time}`);
+                    params.push('orderBy=ASC'); // 对于时间范围查询，升序排列更适合图表显示
+                }
+
+                queryString += params.join('&');
+
+                console.log('Fetching data for dashboard with query:', queryString); // 调试信息
+
+                const response = await fetch(queryString);
+                if (!response.ok) {
+                     const errorData = await response.json();
+                     throw new Error(`HTTP error! Status code: ${response.status}. Details: ${errorData.error || 'Unknown error'}`);
+                }
+                const result = await response.json();
+                const dataPoints = result.data;
+
+                if (dataPoints && dataPoints.length > 0) {
+                    // 对于仪表盘，使用最新的数据点
+                    // 找到实际最新的数据点，无论排序方式如何
+                    const actualLatestData = dataPoints.reduce((prev, current) => {
+                        return (new Date(prev.datetime_insert) > new Date(current.datetime_insert)) ? prev : current;
+                    });
+
+
+                    // 获取 Va, Vb, Vc, Ia, Ib, Ic, Pres1, Vibx, Viby, Vibz 的值，并处理 null 值
+                    const va = actualLatestData.va !== null ? actualLatestData.va : 0;
+                    const vb = actualLatestData.vb !== null ? actualLatestData.vb : 0;
+                    const vc = actualLatestData.vc !== null ? actualLatestData.vc : 0;
+                    const ia = actualLatestData.ia !== null ? actualLatestData.ia : 0;
+                    const ib = actualLatestData.ib !== null ? actualLatestData.ib : 0;
+                    const ic = actualLatestData.ic !== null ? actualLatestData.ic : 0;
+                    const pres1 = actualLatestData.pres1 !== null ? actualLatestData.pres1 : 0.00023; // 使用 pres1 作为真空度，默认为最小值
+
+                    const vibx = actualLatestData.vibx !== null ? actualLatestData.vibx : 0;
+                    const viby = actualLatestData.viby !== null ? actualLatestData.viby : 0;
+                    const vibz = actualLatestData.vibz !== null ? actualLatestData.vibz : 0;
+
+                    // --- 修正：使用数据库中新增的 temperature 和 power 列 ---
+                    const temperature = actualLatestData.temperature !== null ? actualLatestData.temperature : 0;
+                    const power = actualLatestData.power !== null ? actualLatestData.power : 0;
+                    const energy_consumption = actualLatestData.energy_consumption !== null ? actualLatestData.energy_consumption : 0; // Added energy_consumption
+
+                    // --- 修正结束 ---
+
+
+                    // 更新仪表盘 (使用最新数据)
+                    // 使用 toFixed(2) 显示两位小数
+                    voltageVaGauge.refresh(va); // 更新 Va 仪表盘
+                    voltageVbGauge.refresh(vb); // 更新 Vb 仪表盘
+                    voltageVcGauge.refresh(vc); // 更新 Vc 仪表盘
+                    // 更新 Ia, Ib, Ic 仪表盘
+                    currentIaGauge.refresh(ia); // 更新 Ia 仪表盘
+                    currentIbGauge.refresh(ib); // 更新 Ib 仪表盘
+                    currentIcGauge.refresh(ic); // 更新 Ic 仪表盘
+
+                    // --- 修正：更新 power 仪表盘使用实际的 power 字段 ---
+                    powerGauge.refresh(power); // 使用实际的 power 字段
+                    // --- 修正结束 ---
+                    // 更新 energy 仪表盘 (kWh 需要累积计算，暂时显示 0)
+                    energyGauge.refresh(energy_consumption); // Changed to use energy_consumption
+                    // --- 修正：更新 temperature 仪表盘使用实际的 temperature 字段 ---
+                    temperatureGauge.refresh(temperature); // 使用实际的 temperature 字段
+                    // --- 修正结束 ---
+
+                    // 更新 vacuum 仪表盘 (使用 pres1 字段)
+                    console.log('Debug: pres1 value before vacuumGauge refresh:', pres1, typeof pres1); // 新增调试日志
+                    vacuumGauge.refresh(pres1); // 使用 pres1 值更新
+
+
+                    // 为振动图表准备数据
+                    // 如果是 'all' 模式（orderBy=DESC），则反转数据以使图表时间从左到右递增。
+                    // 如果是按时间范围查询（orderBy=ASC），则数据已经是升序，无需反转。
+                    const processedDataPoints = (currentVibrationTimeRange === 'all') ? dataPoints.slice().reverse() : dataPoints;
+
+                    const labels = processedDataPoints.map(item => {
+                        const date = new Date(item.datetime_insert);
+                        // 格式化时间用于标签 (例如，HH:MM:SS)
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        const seconds = String(date.getSeconds()).padStart(2, '0'); // --- 修正：在使用前添加 seconds 的定义 ---
+                        return `${hours}:${minutes}:${seconds}`;
+                    });
+
+                    const vibxData = processedDataPoints.map(item => item.vibx !== null ? item.vibx : 0);
+                    const vibyData = processedDataPoints.map(item => item.viby !== null ? item.viby : 0);
+                    const vibzData = processedDataPoints.map(item => item.vibz !== null ? item.vibz : 0);
+
+                    // 更新或初始化振动图表
+                    if (vibrationChartInstance) {
+                        vibrationChartInstance.data.labels = labels;
+                        vibrationChartInstance.data.datasets[0].data = vibxData;
+                        vibrationChartInstance.data.datasets[1].data = vibyData;
+                        vibrationChartInstance.data.datasets[2].data = vibzData;
+                        vibrationChartInstance.update();
+                    } else {
+                        const ctx = document.getElementById('vibrationChart').getContext('2d');
+                        vibrationChartInstance = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'VibX', data: vibxData, borderColor: 'rgb(54, 162, 235)', tension: 0.1, fill: false },
+                                    { label: 'VibY', data: vibyData, borderColor: 'rgb(255, 99, 132)', tension: 0.1, fill: false },
+                                    { label: 'VibZ', data: vibzData, borderColor: 'rgb(75, 192, 192)', tension: 0.1, fill: false }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    x: {
+                                        type: 'category',
+                                        title: { display: true, text: 'Time' }
+                                    },
+                                    y: {
+                                        title: { display: true, text: 'Vibration (mm/s)' },
+                                        min: 0, // 根据预期振动范围调整最小/最大值
+                                        max: 20
+                                    }
+                                },
+                                plugins: {
+                                    tooltip: { mode: 'index', intersect: false }
+                                }
+                            }
+                        });
+                    }
+
+                } else {
+                    // 如果没有数据，重置仪表盘和图表
+                    voltageVaGauge.refresh(0); // 重置 Va 仪表盘
+                    voltageVbGauge.refresh(0); // 重置 Vb 仪表盘
+                    voltageVcGauge.refresh(0); // 重置 Vc 仪表盘
+                    // 重置 Ia, Ib, Ic 仪表盘
+                    currentIaGauge.refresh(0);
+                    currentIbGauge.refresh(0);
+                    currentIcGauge.refresh(0);
+
+                    // 重置 Power, Energy, Temperature 仪表盘
+                    powerGauge.refresh(0);
+                    energyGauge.refresh(0); // This reset is fine
+                    temperatureGauge.refresh(0);
+
+                    // 重置 Vacuum 仪表盘
+                    vacuumGauge.refresh(0.00023); // 重置为最小值
+
+
+                    // 清空振动图表
+                    if (vibrationChartInstance) {
+                        vibrationChartInstance.data.labels = [];
+                        vibrationChartInstance.data.datasets.forEach(dataset => {
+                            dataset.data = [];
+                        });
+                        vibrationChartInstance.update();
+                    }
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch data:", error);
+                 // 发生错误时，您也可以选择重置仪表盘和图表，或保留之前的值
+                 // voltageVaGauge.refresh(0);
+                 // voltageVbGauge.refresh(0);
+                 // voltageVcGauge.refresh(0);
+                 // currentIaGauge.refresh(0);
+                 // currentIbGauge.refresh(0);
+                 // currentIcGauge.refresh(0);
+                 // if (powerGauge) powerGauge.refresh(0);
+                 // if (energyGauge) energyGauge.refresh(0);
+                 // if (temperatureGauge) temperatureGauge.refresh(0);
+                 // if (vacuumGauge) vacuumGauge.refresh(0.00023);
+                 // if (vibrationChartInstance) { ... clear chart ... }
+            }
+        }
+    </script>
+</body>
+</html>

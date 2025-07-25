@@ -1,0 +1,30 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.lock
+
+# Dependency directories
+/node_modules
+
+# Environment variables - IMPORTANT for security
+.env
+.env.local
+.env.*.local
+
+# VS Code specific
+/.vscode
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Custom test/session files
+test_db_read.js
+vpms.session.sql
+System_instructions.txt

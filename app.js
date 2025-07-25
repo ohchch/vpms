@@ -4,10 +4,15 @@ console.log("Frontend JavaScript file loaded successfully!");
 let currentData = []; // Used to store data fetched from the backend for export
 let currentPage = 1;  // Current page number, starts from 1
 const itemsPerPage = 20; // Number of items to display per page
-let currentSearchDate = ''; // Used to store the current search date
-let currentStartTime = ''; // New: Used to store the current start time
-let currentEndTime = '';   // New: Used to store the current end time
+let currentStartDate = ''; // Changed from currentSearchDate to currentStartDate
+let currentEndDate = '';   // New: Used to store the current end date
+let currentStartTime = ''; // Used to store the current start time
+let currentEndTime = '';   // Used to store the current end time
 let totalPages = 1; // New: Total number of pages
+let currentSortOrder = 'DESC'; // Default sort order
+
+const datetimeHeader = document.getElementById('datetimeHeader');
+const sortIndicator = datetimeHeader.querySelector('.sort-indicator');
 
 /**
  * Fetches data from the backend API and displays it in the table.
@@ -19,8 +24,8 @@ async function fetchDataAndDisplay() {
     const nextPageBtn = document.getElementById('nextPageBtn');
     const pageNumberInput = document.getElementById('pageNumberInput'); // Get the jump to page input box
 
-    // Display loading message, colspan is set to 15 to match the number of table columns
-    dataTableBody.innerHTML = '<tr><td colspan="15" style="text-align: center;">Loading data...</td></tr>';
+    // Display loading message, colspan is set to 18 to match the number of table columns (original 15 + 3 new columns)
+    dataTableBody.innerHTML = '<tr><td colspan="18" style="text-align: center;">Loading data...</td></tr>'; // Changed colspan to 18
     pageInfoSpan.textContent = `Page ${currentPage} / ...`; // Temporarily display
 
     // Calculate offset based on current page number
@@ -28,16 +33,35 @@ async function fetchDataAndDisplay() {
 
     // Construct query string
     let queryString = `/api/data?limit=${itemsPerPage}&offset=${offset}`;
-    if (currentSearchDate) {
-        queryString += `&searchDate=${currentSearchDate}`;
+    // Changed from currentSearchDate to currentStartDate
+    if (currentStartDate) {
+        queryString += `&startDate=${currentStartDate}`;
     }
-    // New: If there is a current search time, also pass it to the request
+    // New: If there is a current end date, also pass it to the request
+    if (currentEndDate) {
+        queryString += `&endDate=${currentEndDate}`;
+    }
+    // If there is a current search time, also pass it to the request
     if (currentStartTime) {
         queryString += `&startTime=${currentStartTime}`;
     }
     if (currentEndTime) {
         queryString += `&endTime=${currentEndTime}`;
     }
+    queryString += `&orderBy=${currentSortOrder}`; // Add sort order to the query
+
+    // --- 新增：打印前端搜索参数和查询字符串 ---
+    console.log('Frontend Search Parameters:', {
+        startDate: currentStartDate,
+        endDate: currentEndDate,
+        startTime: currentStartTime,
+        endTime: currentEndTime,
+        orderBy: currentSortOrder,
+        limit: itemsPerPage,
+        offset: offset
+    });
+    console.log('Frontend Query String:', queryString);
+    // --- 新增结束 ---
 
     try {
         const response = await fetch(queryString);
@@ -46,7 +70,8 @@ async function fetchDataAndDisplay() {
             if (errorData && errorData.error === 'Table or database not found.') {
                 throw new Error('Table or database not found.');
             } else {
-                throw new Error(`HTTP Error! Status code: ${response.status}`);
+                // --- 改进：更详细的错误信息 ---
+                throw new Error(`HTTP Error! Status code: ${response.status}. Details: ${errorData.error || 'Unknown error from server'}`);
             }
         }
         // Parse the new response format: includes data and totalCount
@@ -85,8 +110,11 @@ async function fetchDataAndDisplay() {
 
     } catch (error) {
         console.error("Error fetching data:", error);
+        // --- 改进：更详细的错误信息显示给用户 ---
         let errorMessage = `Failed to load data. Please check the backend server and MySQL database status. Error details: ${error.message}`;
-        dataTableBody.innerHTML = `<tr><td colspan="15" style="color: red; text-align: center;">${errorMessage}</td></tr>`;
+        alert(errorMessage); // 弹窗提示用户
+        // Update colspan to 18 for error message as well
+        dataTableBody.innerHTML = `<tr><td colspan="18" style="color: red; text-align: center;">${errorMessage}</td></tr>`;
         pageInfoSpan.textContent = `Page ${currentPage} (Error)`;
         prevPageBtn.disabled = true;
         nextPageBtn.disabled = true;
@@ -107,6 +135,7 @@ function displayDataInTable(data) {
             const row = dataTableBody.insertRow(); // Insert new row
             // Insert cells and set content, according to tbl_ndas1 schema
             row.insertCell().textContent = item.id;
+            row.insertCell().textContent = item.pump_id !== null ? item.pump_id : 'N/A'; // Added pump_id
             // datetime_insert field may return in various formats, here it is assumed to be a valid date string or a format that can be parsed by Date()
             const datetimeInsert = item.datetime_insert ? (() => {
                 const date = new Date(item.datetime_insert);
@@ -131,13 +160,15 @@ function displayDataInTable(data) {
             row.insertCell().textContent = item.vibx !== null ? item.vibx.toFixed(3) : 'N/A';
             row.insertCell().textContent = item.viby !== null ? item.viby.toFixed(3) : 'N/A';
             row.insertCell().textContent = item.vibz !== null ? item.vibz.toFixed(3) : 'N/A';
-            row.insertCell().textContent = item.pt !== null ? item.pt.toFixed(3) : 'N/A';
+            row.insertCell().textContent = item.energy_consumption !== null ? item.energy_consumption.toFixed(3) : 'N/A'; // Changed from pt to energy_consumption
+            row.insertCell().textContent = item.temperature !== null ? item.temperature.toFixed(3) : 'N/A'; // Added temperature
+            row.insertCell().textContent = item.power !== null ? item.power.toFixed(3) : 'N/A'; // Added power
         });
     } else {
         // If there is no data, display a prompt message
         const row = dataTableBody.insertRow();
         const cell = row.insertCell();
-        cell.colSpan = 15; // Make the cell span all columns
+        cell.colSpan = 18; // Make the cell span all columns (updated to 18)
         cell.style.textAlign = 'center';
         cell.textContent = "No data to display.";
     }
@@ -157,6 +188,7 @@ function exportDataToCsv(data, filename) {
     // Define the order and display names of CSV headers, consistent with table columns
     const headers = [
         { key: 'id', display: 'ID' },
+        { key: 'pump_id', display: 'Pump ID' }, // Added pump_id
         { key: 'datetime_insert', display: 'Datetime Insert' },
         { key: 'va', display: 'Va' },
         { key: 'vb', display: 'Vb' },
@@ -170,7 +202,9 @@ function exportDataToCsv(data, filename) {
         { key: 'vibx', display: 'Vibx' },
         { key: 'viby', display: 'Viby' },
         { key: 'vibz', display: 'Vibz' },
-        { key: 'pt', display: 'Pt' }
+        { key: 'energy_consumption', display: 'Energy Consumption' }, // Changed from Pt to Energy Consumption
+        { key: 'temperature', display: 'Temperature' }, // Added temperature
+        { key: 'power', display: 'Power' } // Added power
     ];
 
     const csvRows = [];
@@ -197,7 +231,7 @@ function exportDataToCsv(data, filename) {
                 })() : '';
             }
             // Handle float types, keep 3 decimal places
-            else if (['va', 'vb', 'vc', 'ia', 'ib', 'ic', 'pres1', 'pres2', 'pres3', 'vibx', 'viby', 'vibz', 'pt'].includes(h.key)) {
+            else if (['va', 'vb', 'vc', 'ia', 'ib', 'ic', 'pres1', 'pres2', 'pres3', 'vibx', 'viby', 'vibz', 'energy_consumption', 'temperature', 'power'].includes(h.key)) { // Updated to include new float columns
                 val = val !== null ? val.toFixed(3) : '';
             }
 
@@ -233,15 +267,25 @@ function exportDataToCsv(data, filename) {
     }
 }
 
+// Function to update the sort indicator
+function updateSortIndicator() {
+    if (currentSortOrder === 'DESC') {
+        sortIndicator.textContent = '▼'; // Down arrow for descending
+    } else {
+        sortIndicator.textContent = '▲'; // Up arrow for ascending
+    }
+}
+
 // Execute data fetching and event listener setup after DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
-    const searchDateInput = document.getElementById('searchDate');
-    const startTimeInput = document.getElementById('startTime'); // New: Get start time input box
-    const endTimeInput = document.getElementById('endTime');     // New: Get end time input box
+    const startDateInput = document.getElementById('startDate'); // Changed from searchDateInput to startDateInput
+    const endDateInput = document.getElementById('endDate');     // New: Get end date input box
+    const startTimeInput = document.getElementById('startTime');
+    const endTimeInput = document.getElementById('endTime');
     const searchBtn = document.getElementById('searchBtn');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
-    const pageNumberInput = document.getElementById('pageNumberInput'); // New: Jump to page input box
-    const goToPageBtn = document.getElementById('goToPageBtn');     // New: Jump button
+    const pageNumberInput = document.getElementById('pageNumberInput');
+    const goToPageBtn = document.getElementById('goToPageBtn');
 
     fetchDataAndDisplay(); // Fetch and display data when the page loads
 
@@ -254,8 +298,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let exportQueryString = '/api/data?'; // Start with ?, convenient for splicing later
             const params = [];
 
-            if (currentSearchDate) {
-                params.push(`searchDate=${currentSearchDate}`);
+            if (currentStartDate) { // Changed from currentSearchDate to currentStartDate
+                params.push(`startDate=${currentStartDate}`);
+            }
+            if (currentEndDate) { // New: Add currentEndDate to export query
+                params.push(`endDate=${currentEndDate}`);
             }
             if (currentStartTime) {
                 params.push(`startTime=${currentStartTime}`);
@@ -271,10 +318,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 exportQueryString = '/api/data';
             }
 
+            // --- 新增：打印导出查询字符串 ---
+            console.log('Export Query String:', exportQueryString);
+            // --- 新增结束 ---
+
             const response = await fetch(exportQueryString);
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(`HTTP Error! Status code: ${response.status}. Error details: ${errorData.error || 'Unknown error'}`);
+                throw new Error(`HTTP Error! Status code: ${response.status}. Error details: ${errorData.error || 'Unknown error from server'}`);
             }
             const result = await response.json(); // Get results containing data and totalCount
             const allData = result.data; // Extract all data
@@ -308,23 +359,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add click event listener for the search button
     searchBtn.addEventListener('click', () => {
-        currentSearchDate = searchDateInput.value; // Get the value of the search input box
-        currentStartTime = startTimeInput.value;   // New: Get the value of the start time input box
-        currentEndTime = endTimeInput.value;       // New: Get the value of the end time input box
+        currentStartDate = startDateInput.value; // Changed from searchDateInput to startDateInput
+        currentEndDate = endDateInput.value;     // New: Get the value of the end date input box
+        currentStartTime = startTimeInput.value;
+        currentEndTime = endTimeInput.value;
         currentPage = 1; // Reset to the first page when searching
         fetchDataAndDisplay(); // Re-fetch and display data
     });
 
     // Add click event listener for the clear search button
     clearSearchBtn.addEventListener('click', () => {
-        searchDateInput.value = ''; // Clear search input box
-        startTimeInput.value = '';  // New: Clear start time input box
-        endTimeInput.value = '';    // New: Clear end time input box
-        currentSearchDate = '';     // Clear search date
-        currentStartTime = '';      // New: Clear search start time
-        currentEndTime = '';        // New: Clear search end time
-        currentPage = 1;            // Reset to the first page
-        fetchDataAndDisplay();      // Re-fetch and display data (without search conditions)
+        startDateInput.value = ''; // Changed from searchDateInput to startDateInput
+        endDateInput.value = '';   // New: Clear end date input box
+        startTimeInput.value = '';
+        endTimeInput.value = '';
+        currentStartDate = '';     // Changed from currentSearchDate to currentStartDate
+        currentEndDate = '';       // New: Clear search end date
+        currentStartTime = '';
+        currentEndTime = '';
+        currentPage = 1;
+        fetchDataAndDisplay();
     });
 
     // New: Add click event listener for the jump button
@@ -345,5 +399,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         fetchDataAndDisplay();    // Re-fetch and display data
+    });
+
+    // Function to update the sort indicator
+    function updateSortIndicator() {
+        if (currentSortOrder === 'DESC') {
+            sortIndicator.textContent = '▼'; // Down arrow for descending
+        } else {
+            sortIndicator.textContent = '▲'; // Up arrow for ascending
+        }
+    }
+
+    // Add event listener to the header
+    datetimeHeader.addEventListener('click', () => {
+        // Toggle sort order
+        currentSortOrder = currentSortOrder === 'DESC' ? 'ASC' : 'DESC';
+
+        // Update the indicator
+        updateSortIndicator();
+
+        // Reset to the first page and fetch data with the new sort order
+        currentPage = 1; // Assuming you have a currentPage variable
+        fetchDataAndDisplay(); // Call your data fetching function
     });
 });

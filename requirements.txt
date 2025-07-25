@@ -1,0 +1,5 @@
+requests
+# Add other Python libraries you need here, e.g.:
+# python-telegram-bot
+# smtplib (usually built-in, but can be listed if needed)
+# other_email_library

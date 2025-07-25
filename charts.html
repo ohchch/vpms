@@ -4,75 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-time Data Charts</title>
-    <!-- 引入 Chart.js CDN -->
+    <!-- Include Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f7f6;
-            color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-        .container {
-            width: 100%;
-            padding: 25px;
-            background-color: #fff;
-            border-radius: 12px;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-            box-sizing: border-box;
-        }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 2.2em;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 15px;
-        }
-        .chart-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(30%, 1fr)); /* 自動調整列數，最小寬度350px */
-            gap: 20px; /* 圖表之間的間距 */
-        }
-        .chart-card {
-            background-color: #ecf0f1;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 300px; /* 確保每個卡片有最小高度 */
-            overflow: hidden; /* 確保圖表不會超出卡片 */
-        }
-        /* 新增的圖表容器樣式 */
-        .chart-canvas-container {
-            position: relative; /* 為了讓 canvas 的 100% 高度生效 */
-            width: 100%;
-            height: 250px; /* 為圖表容器設定固定高度 */
-            margin-top: 10px; /* 與標題的間距 */
-        }
-        .chart-card canvas {
-            max-width: 100%; /* 確保 canvas 不會超出其父容器 */
-            height: 100%; /* 讓 canvas 填充其新父容器的高度 */
-            width: 100%; /* 讓 canvas 填充其新父容器的寬度 */
-        }
-        .chart-title {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #34495e;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-    </style>
+    <!-- Link to the external CSS file -->
+    <link rel="stylesheet" href="main.css">
 </head>
 <body>
+    <!-- Header -->
+    <object type="text/html" data="header.html" style="width:100%;border: none;"></object>
+
     <div class="container">
         <h1>Real-time Data Chart Display</h1>
         <div class="chart-grid">
@@ -101,9 +41,9 @@
                 </div>
             </div>
             <div class="chart-card">
-                <div class="chart-title">Temperature (Pt)</div>
+                <div class="chart-title">Energy Consumption (kWh)</div> <!-- Changed title -->
                 <div class="chart-canvas-container">
-                    <canvas id="temperatureChart"></canvas>
+                    <canvas id="energyConsumptionChart"></canvas> <!-- Changed ID -->
                 </div>
             </div>
             <div class="chart-card">
@@ -111,54 +51,41 @@
                 <!-- More charts can be placed here in the future -->
             </div>
         </div>
-        <!-- New button container -->
-        <div class="button-container" style="text-align: center; margin-top: 25px;">
-            <a href="index.html" style="
-                background-color: #007bff; /* Button color */
-                color: white;
-                padding: 12px 25px;
-                border: none;
-                border-radius: 8px;
-                cursor: pointer;
-                font-size: 1.1em;
-                transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                text-decoration: none; /* Remove link underline */
-                display: inline-block; /* Make margin-left effective */
-            ">Back to Data Display Page</a>
-        </div>
     </div>
 
+    <!-- Footer -->
+    <object type="text/html" data="footer.html" style="width:100%; height:120px; border: none;"></object>
+
     <script>
-        // 用於儲存所有圖表實例的物件
+        // Object to store all chart instances
         let chartInstances = {
             voltage: null,
             current: null,
             pressure: null,
             vibration: null,
-            temperature: null
+            energyConsumption: null // Changed from temperature to energyConsumption
         };
 
         async function fetchAndRenderAllChartsData() {
             try {
-                // 獲取最新 100 條數據，並按時間降序排列 (最新數據在前面)
+                // Fetch the latest 100 data points, ordered by time descending (latest data first)
                 const response = await fetch('/api/data?limit=100&orderBy=DESC');
                 if (!response.ok) {
                     console.error("Fetch response not OK:", response.status, response.statusText);
-                    throw new Error(`HTTP 錯誤！狀態碼: ${response.status}`);
+                    throw new Error(`HTTP error! Status code: ${response.status}`);
                 }
                 const result = await response.json();
-                console.log("從後端獲取的原始數據:", result);
-                
+                console.log("Raw data fetched from backend:", result);
+
                 const chartData = result.data.reverse(); // Charts need time to increase from left to right
-                console.log("處理後用於圖表的數據 (已反轉):", chartData);
+                console.log("Processed data for charts (reversed):", chartData);
 
                 if (chartData.length > 0) {
-                    // 修改這裡：使用 UTC 相關的方法來格式化時間，避免本地時區轉換
+                    // Use UTC methods for time formatting to avoid local timezone conversion issues
                     const labels = chartData.map(item => {
                         const date = new Date(item.datetime_insert);
                         const year = date.getUTCFullYear();
-                        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                        const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // getUTCMonth() is 0-indexed
                         const day = String(date.getUTCDate()).padStart(2, '0');
                         const hours = String(date.getUTCHours()).padStart(2, '0');
                         const minutes = String(date.getUTCMinutes()).padStart(2, '0');
@@ -166,31 +93,31 @@
                         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
                     });
 
-                    // 電壓數據
+                    // Voltage data
                     const vaData = chartData.map(item => item.va);
                     const vbData = chartData.map(item => item.vb);
                     const vcData = chartData.map(item => item.vc);
 
-                    // 電流數據
+                    // Current data
                     const iaData = chartData.map(item => item.ia);
                     const ibData = chartData.map(item => item.ib);
                     const icData = chartData.map(item => item.ic);
 
-                    // 壓力數據
+                    // Pressure data
                     const pres1Data = chartData.map(item => item.pres1);
                     const pres2Data = chartData.map(item => item.pres2);
                     const pres3Data = chartData.map(item => item.pres3);
 
-                    // 震動數據
+                    // Vibration data
                     const vibxData = chartData.map(item => item.vibx);
                     const vibyData = chartData.map(item => item.viby);
                     const vibzData = chartData.map(item => item.vibz);
 
-                    // 溫度數據
-                    const ptData = chartData.map(item => item.pt);
+                    // Energy Consumption data
+                    const energyConsumptionData = chartData.map(item => item.energy_consumption); // Changed from ptData to energyConsumptionData and item.pt to item.energy_consumption
 
 
-                    // --- 電壓圖表 ---
+                    // --- Voltage Chart ---
                     if (chartInstances.voltage) {
                         chartInstances.voltage.data.labels = labels;
                         chartInstances.voltage.data.datasets[0].data = vaData;
@@ -217,7 +144,7 @@
                         });
                     }
 
-                    // --- 電流圖表 ---
+                    // --- Current Chart ---
                     if (chartInstances.current) {
                         chartInstances.current.data.labels = labels;
                         chartInstances.current.data.datasets[0].data = iaData;
@@ -244,7 +171,7 @@
                         });
                     }
 
-                    // --- 壓力圖表 ---
+                    // --- Pressure Chart ---
                     if (chartInstances.pressure) {
                         chartInstances.pressure.data.labels = labels;
                         chartInstances.pressure.data.datasets[0].data = pres1Data;
@@ -271,7 +198,7 @@
                         });
                     }
 
-                    // --- 震動圖表 ---
+                    // --- Vibration Chart ---
                     if (chartInstances.vibration) {
                         chartInstances.vibration.data.labels = labels;
                         chartInstances.vibration.data.datasets[0].data = vibxData;
@@ -298,24 +225,24 @@
                         });
                     }
 
-                    // --- 溫度圖表 ---
-                    if (chartInstances.temperature) {
-                        chartInstances.temperature.data.labels = labels;
-                        chartInstances.temperature.data.datasets[0].data = ptData;
-                        chartInstances.temperature.update();
+                    // --- Energy Consumption Chart --- // Changed comment
+                    if (chartInstances.energyConsumption) { // Changed instance variable
+                        chartInstances.energyConsumption.data.labels = labels; // Changed instance variable
+                        chartInstances.energyConsumption.data.datasets[0].data = energyConsumptionData; // Changed data source
+                        chartInstances.energyConsumption.update(); // Changed instance variable
                     } else {
-                        const ctx = document.getElementById('temperatureChart').getContext('2d');
-                        chartInstances.temperature = new Chart(ctx, {
+                        const ctx = document.getElementById('energyConsumptionChart').getContext('2d'); // Changed ID
+                        chartInstances.energyConsumption = new Chart(ctx, { // Changed instance variable
                             type: 'line',
                             data: {
                                 labels: labels,
                                 datasets: [
-                                    { label: 'Pt', data: ptData, borderColor: 'rgb(255, 99, 132)', tension: 0.1, fill: false }
+                                    { label: 'Energy Consumption', data: energyConsumptionData, borderColor: 'rgb(255, 99, 132)', tension: 0.1, fill: false } // Changed label and data
                                 ]
                             },
                             options: {
                                 responsive: true, maintainAspectRatio: false,
-                                scales: { x: { type: 'category', title: { display: true, text: 'Time' } }, y: { title: { display: true, text: 'Temperature (°C)' }, min: 0, max: 100 } }, // Assume temperature range
+                                scales: { x: { type: 'category', title: { display: true, text: 'Time' } }, y: { title: { display: true, text: 'Energy Consumption (kWh)' }, min: 0, max: 1000 } }, // Changed title and adjusted range
                                 plugins: { tooltip: { mode: 'index', intersect: false } }
                             }
                         });
@@ -323,7 +250,7 @@
 
                 } else {
                     console.warn("No data to display charts.");
-                    // 如果沒有資料，可以考慮清除所有圖表或顯示訊息
+                    // If no data, clear all charts or display a message
                     for (const key in chartInstances) {
                         if (chartInstances[key]) {
                             chartInstances[key].data.labels = [];
@@ -340,11 +267,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // 首次載入時獲取並渲染所有圖表
+            // Fetch and render all charts on initial load
             fetchAndRenderAllChartsData();
 
-            // 每秒更新一次所有圖表
-            setInterval(fetchAndRenderAllChartsData, 1000); // 1000 毫秒 = 1 秒
+            // Update all charts every second
+            setInterval(fetchAndRenderAllChartsData, 1000); // 1000 ms = 1 second
         });
     </script>
 </body>

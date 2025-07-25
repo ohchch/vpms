@@ -8,6 +8,7 @@ services:
     ports:
       - "3000:3000" # 將主機的 3000 端口映射到容器的 3000 端口
                     # 這樣您就可以通過 http://localhost:3000 訪問網頁應用程式
+    restart: always # 新增此行以確保服務自動重啟
     environment:
       # 關鍵：將 'MYSQL_HOST' 設置為您另一台電腦的實際 IP 地址
       # 這個 IP 地址是您的 Docker 宿主機（如果是虛擬機，那就是虛擬機的 IP）可以通過網路訪問到的那台電腦的 IP。

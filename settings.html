@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alarm Settings</title>
+    <!-- Link to the external CSS file -->
+    <link rel="stylesheet" href="main.css">
+    <style>
+        /* Add some basic styling for the settings form */
+        .settings-form {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .settings-form h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input[type="number"],
+        .form-group input[type="email"],
+        .form-group input[type="text"],
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+        }
+
+        .form-group textarea {
+            resize: vertical; /* Allow vertical resizing */
+        }
+
+        .save-button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .save-button:hover {
+            background-color: #4cae4c;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <object type="text/html" data="header.html" style="width:100%; height:60px; border: none;"></object>
+
+    <main class="container">
+        <div class="settings-form">
+            <h2>Alarm Threshold Settings</h2>
+
+            <div class="form-group">
+                <label for="voltageVaThreshold">Voltage Va Threshold (V):</label>
+                <input type="number" id="voltageVaThreshold" name="voltageVaThreshold" step="0.01">
+            </div>
+
+            <div class="form-group">
+                <label for="voltageVbThreshold">Voltage Vb Threshold (V):</label>
+                <input type="number" id="voltageVbThreshold" name="voltageVbThreshold" step="0.01">
+            </div>
+
+            <div class="form-group">
+                <label for="voltageVcThreshold">Voltage Vc Threshold (V):</label>
+                <input type="number" id="voltageVcThreshold" name="voltageVcThreshold" step="0.01">
+            </div>
+
+            <div class="form-group">
+                <label for="currentIaThreshold">Current Ia Threshold (A):</label>
+                <input type="number" id="currentIaThreshold" name="currentIaThreshold" step="0.01">
+            </div>
+
+            <div class="form-group">
+                <label for="currentIbThreshold">Current Ib Threshold (A):</label>
+                <input type="number" id="currentIbThreshold" name="currentIbThreshold" step="0.01">
+            </div>
+
+            <div class="form-group">
+                <label for="currentIcThreshold">Current Ic Threshold (A):</label>
+                <input type="number" id="currentIcThreshold" name="currentIcThreshold" step="0.01">
+            </div>
+
+             <div class="form-group">
+                <label for="temperatureThreshold">Temperature Threshold (℃):</label>
+                <input type="number" id="temperatureThreshold" name="temperatureThreshold" step="0.01">
+            </div>
+
+             <div class="form-group">
+                <label for="vacuumThreshold">Vacuum Threshold (Torr):</label>
+                <input type="number" id="vacuumThreshold" name="vacuumThreshold" step="0.0001">
+            </div>
+
+             <div class="form-group">
+                <label for="vibrationXThreshold">Vibration VibX Threshold (mm/s):</label>
+                <input type="number" id="vibrationXThreshold" name="vibrationXThreshold" step="0.01">
+            </div>
+
+             <div class="form-group">
+                <label for="vibrationYThreshold">Vibration VibY Threshold (mm/s):</label>
+                <input type="number" id="vibrationYThreshold" name="vibrationYThreshold" step="0.01">
+            </div>
+
+             <div class="form-group">
+                <label for="vibrationZThreshold">Vibration VibZ Threshold (mm/s):</label>
+                <input type="number" id="vibrationZThreshold" name="vibrationZThreshold" step="0.01">
+            </div>
+
+
+            <h3>Recipient Settings</h3>
+
+            <div class="form-group">
+                <label for="emailRecipients">Alarm Email Addresses (separate with commas):</label>
+                <textarea id="emailRecipients" name="emailRecipients" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="telegramRecipients">Alarm Telegram Chat IDs or Usernames (separate with commas):</label>
+                <textarea id="telegramRecipients" name="telegramRecipients" rows="3"></textarea>
+            </div>
+
+            <button type="button" class="save-button" id="saveSettingsBtn">Save Settings</button>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <object type="text/html" data="header.html" style="width:100%;border: none;"></object>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+
+            // Function to load current settings (requires backend API)
+            async function loadSettings() {
+                try {
+                    // Assuming a backend API endpoint like /api/settings exists to fetch current settings
+                    const response = await fetch('/api/settings');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const settings = await response.json();
+
+                    // Populate the form fields with loaded settings
+                    document.getElementById('voltageVaThreshold').value = settings.voltageVaThreshold || '';
+                    document.getElementById('voltageVbThreshold').value = settings.voltageVbThreshold || '';
+                    document.getElementById('voltageVcThreshold').value = settings.voltageVcThreshold || '';
+                    document.getElementById('currentIaThreshold').value = settings.currentIaThreshold || '';
+                    document.getElementById('currentIbThreshold').value = settings.currentIbThreshold || '';
+                    document.getElementById('currentIcThreshold').value = settings.currentIcThreshold || '';
+                    document.getElementById('temperatureThreshold').value = settings.temperatureThreshold || '';
+                    document.getElementById('vacuumThreshold').value = settings.vacuumThreshold || '';
+                    document.getElementById('vibrationXThreshold').value = settings.vibrationXThreshold || '';
+                    document.getElementById('vibrationYThreshold').value = settings.vibrationYThreshold || '';
+                    document.getElementById('vibrationZThreshold').value = settings.vibrationZThreshold || '';
+                    document.getElementById('emailRecipients').value = (settings.emailRecipients || []).join(', '); // Assuming recipients are stored as an array
+                    document.getElementById('telegramRecipients').value = (settings.telegramRecipients || []).join(', '); // Assuming recipients are stored as an array
+
+                    console.log("Settings loaded successfully.");
+
+                } catch (error) {
+                    console.error("Failed to load settings:", error);
+                    // Optionally display an error message to the user
+                }
+            }
+
+            // Function to save settings (requires backend API)
+            async function saveSettings() {
+                const settings = {
+                    voltageVaThreshold: parseFloat(document.getElementById('voltageVaThreshold').value),
+                    voltageVbThreshold: parseFloat(document.getElementById('voltageVbThreshold').value),
+                    voltageVcThreshold: parseFloat(document.getElementById('voltageVcThreshold').value),
+                    currentIaThreshold: parseFloat(document.getElementById('currentIaThreshold').value),
+                    currentIbThreshold: parseFloat(document.getElementById('currentIbThreshold').value),
+                    currentIcThreshold: parseFloat(document.getElementById('currentIcThreshold').value),
+                    temperatureThreshold: parseFloat(document.getElementById('temperatureThreshold').value),
+                    vacuumThreshold: parseFloat(document.getElementById('vacuumThreshold').value),
+                    vibrationXThreshold: parseFloat(document.getElementById('vibrationXThreshold').value),
+                    vibrationYThreshold: parseFloat(document.getElementById('vibrationYThreshold').value),
+                    vibrationZThreshold: parseFloat(document.getElementById('vibrationZThreshold').value),
+                    emailRecipients: document.getElementById('emailRecipients').value.split(',').map(email => email.trim()).filter(email => email), // Split by comma, trim whitespace, filter empty strings
+                    telegramRecipients: document.getElementById('telegramRecipients').value.split(',').map(recipient => recipient.trim()).filter(recipient => recipient) // Split by comma, trim whitespace, filter empty strings
+                };
+
+                // Basic validation (optional)
+                // You might want to add more robust validation here
+
+                try {
+                    // Assuming a backend API endpoint like /api/settings exists to save settings
+                    const response = await fetch('/api/settings', {
+                        method: 'POST', // Or PUT, depending on your API design
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(settings)
+                    });
+
+                    if (!response.ok) {
+                         const errorData = await response.json();
+                         throw new Error(`HTTP error! status: ${response.status}. Details: ${errorData.error || 'Unknown error'}`);
+                    }
+
+                    console.log("Settings saved successfully.");
+                    alert("Settings saved!"); // Provide user feedback
+
+                } catch (error) {
+                    console.error("Failed to save settings:", error);
+                    alert(`Failed to save settings: ${error.message}`); // Provide user feedback
+                }
+            }
+
+            // Load settings when the page loads
+            loadSettings();
+
+            // Add event listener to the save button
+            saveSettingsBtn.addEventListener('click', saveSettings);
+        });
+    </script>
+</body>
+</html>

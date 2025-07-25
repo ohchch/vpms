@@ -1,0 +1,494 @@
+/* 基本 CSS 樣式 */
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0; /* Remove padding from body */
+    background-color: #f4f7f6;
+    color: #333;
+    display: flex;
+    flex-direction: column; /* Arrange children vertically */
+    align-items: center; /* Center content horizontally */
+    min-height: 100vh;
+}
+
+/* Add styles for header and footer */
+header {
+    background-color: #34495e;
+    color: white;
+    padding: 15px 20px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex; /* Use flexbox for header content */
+    justify-content: space-between; /* Space out title and nav */
+    align-items: center; /* Vertically center items */
+}
+
+header h1 {
+    margin: 0;
+    color: white; /* Ensure header title is white */
+    font-size: 1.8em;
+    border-bottom: none; /* Remove border from header title */
+    padding-bottom: 0;
+}
+
+header nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex; /* Arrange nav items horizontally */
+}
+
+header nav ul li {
+    margin-left: 20px; /* Space between nav items */
+}
+
+header nav ul li a {
+    color: white;
+    text-decoration: none;
+    font-size: 1em;
+    transition: color 0.3s ease;
+}
+
+header nav ul li a:hover {
+    color: #bdc3c7; /* Lighter color on hover */
+}
+
+
+footer {
+    background-color: #34495e;
+    color: white;
+    padding: 15px 20px;
+    width: 100%;
+    text-align: center;
+    margin-top: auto; /* Push footer to the bottom */
+    box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+}
+
+.container {
+    width: 95%;
+    padding: 25px;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    box-sizing: border-box; /* 確保 padding 不會增加總寬度 */
+    margin: 20px auto; /* Add margin top/bottom and center */
+    flex-grow: 1; /* Allow container to grow and fill space */
+}
+h1 {
+    color: #2c3e50;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2em; /* Default h1 size */
+    border-bottom: 2px solid #eee;
+    padding-bottom: 15px;
+}
+
+/* Styles specific to index.html */
+.search-controls {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.loading-message {
+    text-align: center;
+}
+
+.search-controls label,
+.search-controls input,
+.search-controls button {
+    vertical-align: middle; /* Align items vertically */
+}
+.search-controls input[type="date"],
+.search-controls input[type="time"] {
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+.search-controls button {
+    padding: 8px 15px;
+    margin-left: 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+#searchBtn {
+    background-color: #28a745;
+    color: white;
+}
+#searchBtn:hover {
+    background-color: #218838;
+}
+#clearSearchBtn {
+    background-color: #dc3545;
+    color: white;
+}
+#clearSearchBtn:hover {
+    background-color: #c82333;
+}
+
+/* Make the table horizontally scrollable on small screens */
+.table-responsive {
+    overflow-x: auto;
+    margin-bottom: 25px;
+    border-radius: 8px; /* Match table's border-radius */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Slight shadow */
+}
+table {
+    width: 100%;
+    min-width: 800px; /* Ensure table is scrollable on small screens */
+    border-collapse: collapse;
+    background-color: #ecf0f1;
+    border-radius: 8px;
+    overflow: hidden; /* Ensure border-radius works for table content */
+}
+th, td {
+    border: 1px solid #ddd;
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 0.95em;
+    white-space: nowrap; /* Prevent content wrapping, ensure horizontal scrolling */
+}
+th {
+    background-color: #34495e;
+    color: white;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+tr:nth-child(even) {
+    background-color: #f8f8f8;
+}
+tr:hover {
+    background-color: #e0e0e0;
+}
+.pagination-controls {
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 20px; /* Add margin below pagination */
+}
+.pagination-controls button,
+.pagination-controls input,
+.pagination-controls span {
+    vertical-align: middle; /* Align items vertically */
+    margin: 0 5px; /* Add some space between controls */
+}
+.pagination-controls input[type="number"] {
+    width: 60px;
+    text-align: center;
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+.pagination-controls button {
+    padding: 8px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.pagination-controls button:hover {
+    background-color: #0056b3;
+}
+
+.button-container {
+    text-align: center;
+    margin-top: 25px;
+}
+.button-container button {
+    background-color: #3498db;
+    color: white;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.1em;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.button-container button:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+.button-container button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+
+/* Styles specific to dashboard.html */
+.kpi-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.card {
+    background-color: #ecf0f1;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    text-align: center;
+}
+
+.card h2 {
+    font-size: 1.2em;
+    color: #34495e;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.card p {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+/* Gauge container styles */
+.gauge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Adjusted min width */
+    gap: 20px;
+    margin-bottom: 30px;
+    justify-items: center; /* Center gauges in grid cells */
+}
+
+.gauge-container {
+    width: 100%; /* Container width */
+    max-width: 300px; /* Max width */
+    height: 250px; /* Container height */
+    background-color: #ecf0f1;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.gauge-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #34495e;
+    margin-bottom: 10px;
+}
+
+
+/* Styles specific to charts.html */
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Adjusted min width for better layout */
+    gap: 20px; /* Spacing between charts */
+}
+.chart-card {
+    background-color: #ecf0f1;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px; /* Ensure each card has a minimum height */
+    overflow: hidden; /* Ensure charts don't overflow cards */
+}
+/* New chart container styles */
+.chart-canvas-container {
+    position: relative; /* For canvas 100% height to work */
+    width: 100%;
+    height: 250px; /* Set fixed height for chart container */
+    margin-top: 10px; /* Space from title */
+}
+.chart-card canvas {
+    max-width: 100%; /* Ensure canvas doesn't exceed its parent container */
+    height: 100%; /* Make canvas fill the height of its new parent container */
+    width: 100%; /* Make canvas fill the width of its new parent container */
+}
+.chart-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #34495e;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    header {
+        flex-direction: column; /* Stack header items vertically */
+        padding: 10px 15px;
+    }
+    header h1 {
+        font-size: 1.5em;
+        margin-bottom: 10px; /* Add space below title */
+    }
+    header nav ul {
+        flex-direction: column; /* Stack nav items vertically */
+        align-items: center;
+    }
+    header nav ul li {
+        margin: 5px 0; /* Adjust margin for stacked items */
+    }
+    footer {
+        padding: 10px 15px;
+    }
+    .container {
+        padding: 15px;
+        margin: 15px auto;
+    }
+    h1 {
+        font-size: 1.8em; /* Adjust h1 size for smaller screens */
+        margin-bottom: 20px;
+    }
+    th, td {
+        padding: 10px 12px;
+        font-size: 0.85em;
+    }
+    .button-container button {
+        padding: 10px 20px;
+        font-size: 1em;
+    }
+    /* .table-responsive min-width ensures horizontal scrolling on small screens */
+
+    /* Dashboard specific adjustments */
+    .kpi-cards {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    .card {
+        padding: 15px;
+    }
+    .card h2 {
+        font-size: 1.1em;
+    }
+    .card p {
+        font-size: 1.5em;
+    }
+    .gauge-grid {
+         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Adjust min width */
+         gap: 15px;
+    }
+     .gauge-container {
+         height: 200px; /* Adjust container height */
+         padding: 10px;
+     }
+     .gauge-title {
+         font-size: 1.1em;
+         margin-bottom: 8px;
+     }
+
+    /* Charts specific adjustments */
+    .chart-grid {
+         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Adjust min width */
+         gap: 15px;
+    }
+    .chart-card {
+         padding: 15px;
+         min-height: 250px;
+    }
+    .chart-canvas-container {
+         height: 200px; /* Adjust chart container height */
+    }
+    .chart-title {
+         font-size: 1.1em;
+         margin-bottom: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 0; /* Remove padding from body */
+    }
+    header, footer {
+        padding: 10px;
+    }
+    header h1 {
+        font-size: 1.5em;
+    }
+    .container {
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px auto;
+    }
+    table {
+        font-size: 0.8em;
+    }
+    th, td {
+        padding: 8px 10px;
+    }
+    .button-container button {
+        width: 100%;
+        font-size: 0.95em;
+        margin-left: 0 !important; /* Override inline styles */
+        margin-right: 0 !important; /* Override inline styles */
+        margin-bottom: 10px; /* Add space between buttons */
+    }
+    .button-container button,
+    .button-container a {
+         width: auto; /* Allow buttons in container to size naturally */
+         display: inline-block; /* Ensure they are side-by-side if space allows */
+         margin: 0 5px; /* Add small horizontal margin */
+    }
+     .search-controls button {
+         width: auto; /* Allow search buttons to size naturally */
+         display: inline-block;
+         margin: 5px; /* Add margin around search buttons */
+     }
+     .pagination-controls button,
+     .pagination-controls input,
+     .pagination-controls span {
+         margin: 5px; /* Add margin around pagination controls */
+     }
+
+    /* Dashboard specific adjustments */
+    .kpi-cards {
+        grid-template-columns: 1fr; /* Stack cards on very small screens */
+        gap: 10px;
+    }
+    .card {
+        padding: 10px;
+    }
+    .card h2 {
+        font-size: 1em;
+    }
+    .card p {
+        font-size: 1.3em;
+    }
+    .gauge-grid {
+         grid-template-columns: 1fr; /* Stack gauges on very small screens */
+         gap: 10px;
+    }
+     .gauge-container {
+         height: 180px; /* Adjust container height */
+         padding: 8px;
+     }
+     .gauge-title {
+         font-size: 1em;
+         margin-bottom: 5px;
+     }
+
+    /* Charts specific adjustments */
+    .chart-grid {
+         grid-template-columns: 1fr; /* Stack charts on very small screens */
+         gap: 10px;
+    }
+    .chart-card {
+         padding: 10px;
+         min-height: 200px;
+    }
+     .chart-canvas-container {
+         height: 180px; /* Adjust chart container height */
+     }
+    .chart-title {
+         font-size: 1em;
+         margin-bottom: 8px;
+    }
+}

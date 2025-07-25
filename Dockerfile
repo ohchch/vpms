@@ -12,6 +12,9 @@ COPY package*.json ./
 # 安裝 bash，因為 Alpine 映像可能預設不包含它，而 Cursor 需要 bash
 RUN apk add --no-cache bash
 
+# 添加 Python 3 和 pip 環境
+RUN apk add --no-cache python3 py3-pip
+
 # 安裝 Node.js 依賴
 # --omit=dev 表示不安裝開發依賴，以減小生產映像的大小
 RUN npm install --omit=dev
