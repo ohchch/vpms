@@ -45,38 +45,38 @@ app.use(session({
 
 // 这些页面只需要登录即可访问 (Operator 和 Admin 都可以)
 app.get('/dashboard.html', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'dashboard.html'));
+    // 修改：路径现在相对于 server.js 的新位置
+    res.sendFile(path.join(__dirname, '../html/dashboard.html'));
 });
 app.get('/charts.html', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'charts.html'));
+    // 修改：路径现在相对于 server.js 的新位置
+    res.sendFile(path.join(__dirname, '../html/charts.html'));
 });
 app.get('/index.html', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    // 修改：路径现在相对于 server.js 的新位置
+    res.sendFile(path.join(__dirname, '../html/index.html'));
 });
 
 // 这些页面需要特定的权限 (理论上只有 Admin 可以访问)
 app.get('/settings.html', requirePermission('settings:read'), (req, res) => {
-    res.sendFile(path.join(__dirname, 'settings.html'));
+    // 修改：路径现在相对于 server.js 的新位置
+    res.sendFile(path.join(__dirname, '../html/settings.html'));
 });
 app.get('/test.html', requirePermission('notification:test'), (req, res) => {
-    res.sendFile(path.join(__dirname, 'test.html'));
+    // 修改：路径现在相对于 server.js 的新位置
+    res.sendFile(path.join(__dirname, '../html/test.html'));
 });
 
 
-// 静态文件服务，对于未被上面路由捕获的请求，会尝试从文件系统提供服务
-// 例如: login.html, register.html, CSS, JS 文件等
-app.use(express.static(path.join(__dirname, '')));
-app.use(express.json()); // --- 新增：用於解析 JSON 格式的請求體 ---
+// 静态文件服务：
+// 1. 将 html 目录作为根目录提供服务，这样 /index.html 就能直接访问
+app.use(express.static(path.join(__dirname, '../html')));
+// 2. 为其他资源（CSS, JS, 图片）创建虚拟路径，方便在 HTML 中使用绝对路径引用
+app.use('/css', express.static(path.join(__dirname, '../css')));
+app.use('/js', express.static(path.join(__dirname, '../js')));
+app.use('/img', express.static(path.join(__dirname, '../img'))); // 确保 logo.png 可以被访问
 
-// --- 新增：引入会话管理和密码哈希模块 ---
-// const session = require('express-session');
-// const bcrypt = require('bcrypt');
-// const saltRounds = 10; // 用于 bcrypt 的 salt 轮数，数值越高越安全但越慢
-
-// --- 新增：引入我們自己的通知模塊 ---
-// const { sendEmailAlert } = require('./emailNotifier');
-// const { sendTelegramAlert } = require('./telegramNotifier'); // 确保已导入
-
+app.use(express.json()); // 用于解析 JSON 格式的请求体
 
 // MySQL 資料庫連接配置
 const dbConfig = {
@@ -136,7 +136,8 @@ try {
 
 
 // --- 新增：報警系統核心邏輯 ---
-const SETTINGS_FILE_PATH = path.join(__dirname, 'settings.json');
+// 修改：SETTINGS_FILE_PATH 现在指向新的 config 目录
+const SETTINGS_FILE_PATH = path.join(__dirname, '../config/settings.json');
 let alarmState = {}; // 用於存儲每個監控項的報警狀態 (e.g., { voltageVa: 'NORMAL' | 'TRIGGERED' })
 
 // 檢查警報的函數
@@ -366,6 +367,22 @@ app.get('/logout', (req, res) => {
         res.clearCookie('connect.sid'); // 清除 cookie
         res.redirect('/login.html'); // 登出成功重定向到登录页
     });
+});
+
+// 获取当前用户会话信息的 API
+// This endpoint is protected by the `isAuthenticated` middleware.
+app.get('/api/session/me', isAuthenticated, (req, res) => {
+    // If the request reaches this point, `req.session.user` is guaranteed to exist.
+    // We return only the necessary information to the client.
+    if (req.session.user) {
+        res.json({
+            username: req.session.user.username,
+            permissions: req.session.user.permissions || []
+        });
+    } else {
+        // This is a fallback, as the middleware should prevent unauthenticated access.
+        res.status(401).json({ error: 'Not authenticated' });
+    }
 });
 
 // 获取当前用户会话信息的 API

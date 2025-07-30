@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Link to the main CSS file to apply styles -->
-    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="/css/main.css"> <!-- 修改：使用绝对路径 -->
     <style>
         body {
             margin: 0;
@@ -70,7 +70,7 @@
         <!-- 左侧 Logo 和公司名 -->
         <div class="header-left">
             <!-- 请将 src 替换为您自己的 Logo 图片路径 -->
-            <img src="logo.png" alt="Company Logo" class="logo">
+            <img src="/img/logo.png" alt="Company Logo" class="logo"> <!-- 修改：使用绝对路径 -->
             <span class="company-name">iVACS (Intelligent Vacuum Analytics & Control System)</span>
         </div>
 
@@ -90,7 +90,7 @@
 
             <!-- 用户信息和登出 -->
             <div class="user-info">
-                <span>Welcome, <strong id="username-display">Guest</strong></span>
+                <span>Welcome, <strong id="welcome-user">Guest</strong></span>
                 <!-- --- 核心修改 1：移除了 href 属性，并添加了 id 以便 JS 选择 --- -->
                 <a id="logout-link" class="logout-link">Logout</a>
             </div>
@@ -99,62 +99,73 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- 现有逻辑：获取会话信息并更新UI ---
+        // --- 1. Fetch session info and update UI ---
         fetch('/api/session/me')
             .then(res => {
+                // If the server returns 401 (Unauthorized) or 403 (Forbidden),
+                // the session is invalid or has expired. Force a redirect to the login page.
+                if (res.status === 401 || res.status === 403) {
+                    console.log('Session invalid, redirecting to login.');
+                    window.top.location.href = '/login.html';
+                    return; // Stop further processing
+                }
                 if (!res.ok) {
-                    if (res.status === 401 || res.status === 403) {
-                         window.top.location.href = '/login.html';
-                    }
-                    throw new Error('Could not fetch session info');
+                    // Handle other network or server errors
+                    throw new Error('Could not fetch session info, status: ' + res.status);
                 }
                 return res.json();
             })
             .then(data => {
-                const usernameDisplay = document.getElementById('username-display');
-                if (usernameDisplay) {
-                    usernameDisplay.textContent = data.username;
+                // Do not proceed if no data was received (e.g., before a redirect)
+                if (!data) return;
+
+                // Find the welcome message element by its new ID
+                const welcomeUserEl = document.getElementById('welcome-user');
+                if (welcomeUserEl) {
+                    // Update the displayed username
+                    welcomeUserEl.textContent = data.username;
                 }
 
+                // Show or hide navigation links based on user permissions
                 const permissions = data.permissions || [];
                 if (permissions.includes('settings:read')) {
-                    document.getElementById('nav-settings').style.display = 'list-item';
+                    const navSettings = document.getElementById('nav-settings');
+                    if(navSettings) navSettings.style.display = 'list-item';
                 }
                 if (permissions.includes('notification:test')) {
-                    document.getElementById('nav-test').style.display = 'list-item';
+                    const navTest = document.getElementById('nav-test');
+                    if(navTest) navTest.style.display = 'list-item';
                 }
             })
             .catch(error => {
                 console.error('Error fetching user session:', error);
-                // 如果获取会话失败，最可能的原因是会话已过期，直接跳转到登录页
+                // As a security measure, redirect to the login page on any unhandled error
                 window.top.location.href = '/login.html';
             });
 
-        // --- 核心修改 2：为登出链接添加客户端处理逻辑 ---
+        // --- 2. Add client-side logic for the logout link ---
         const logoutLink = document.getElementById('logout-link');
         if (logoutLink) {
             logoutLink.addEventListener('click', (event) => {
-                event.preventDefault(); // 阻止任何默认行为
+                event.preventDefault(); // Prevent the link's default behavior
 
-                // 使用 fetch API 调用后端的登出接口
+                // Call the backend logout API
                 fetch('/api/logout', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 })
                 .then(response => {
                     if (response.ok) {
-                        // 服务器端会话已销毁，现在强制顶层窗口跳转
+                        // On successful logout, redirect to the login page
                         console.log('Logout successful. Redirecting...');
                         window.top.location.href = '/login.html';
                     } else {
-                        // 如果服务器返回错误，提示用户
+                        // If the server returns an error, notify the user
                         alert('Logout failed. Please try again.');
-                        console.error('Server responded with an error during logout.');
                     }
                 })
                 .catch(error => {
-                    // 处理网络错误等
-                    console.error('Error during fetch for logout:', error);
+                    console.error('Error during logout:', error);
                     alert('An error occurred during logout. Please check your network connection.');
                 });
             });

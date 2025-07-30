@@ -3,7 +3,7 @@
 node_modules
 
 # 忽略 npm 除錯日誌
-npm-debug.log
+npm-debug.log* # 使用通配符匹配所有 debug log
 
 # 忽略 macOS 系統檔案
 .DS_Store
@@ -17,3 +17,18 @@ npm-debug.log
 *.tmp
 .vscode
 .idea
+
+# 忽略環境變量文件 (非常重要，防止敏感信息泄露)
+#.env
+#.env.local
+#.env.*.local
+
+# 忽略用户特定设置文件（如果它不应该被打包到镜像中）
+#settings.json
+
+# 忽略测试和会话文件
+test_db_read.js
+vpms.session.sql
+
+# 忽略说明文件
+System_instructions.txt

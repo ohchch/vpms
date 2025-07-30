@@ -2,9 +2,9 @@
     "name": "mysql-data-display-app",
     "version": "1.0.0",
     "description": "A web application to read data from MySQL, display in a table, and export as CSV, running in Docker.",
-    "main": "server.js",
+    "main": "js/server.js",
     "scripts": {
-        "start": "node server.js"
+        "start": "node js/server.js"
     },
     "keywords": [
         "docker",

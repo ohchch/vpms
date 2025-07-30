@@ -1,10 +1,16 @@
 # docker-compose.yml
-version: '3.8' # 指定 Docker Compose 檔案格式的版本
 
 services:
   # Node.js 應用程式服務
   app:
-    build: . # 從當前目錄的 Dockerfile 構建映像
+    build:
+      context: . # Set the build context to the root of the project where Dockerfile is located
+      dockerfile: Dockerfile # Specify the Dockerfile name within this context
+    container_name: vpms_app # 修改：容器名稱為 vpms_app
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     ports:
       - "3000:3000" # 將主機的 3000 端口映射到容器的 3000 端口
                     # 這樣您就可以通過 http://localhost:3000 訪問網頁應用程式
@@ -12,16 +18,18 @@ services:
     # --- 修改：使用 env_file 来加载环境变量 ---
     # 这样做更安全、更易于管理，它会从项目根目录的 .env 文件加载所有变量。
     env_file:
-      - .env
+      - ./vpms/config/.env # 修改：.env 文件现在位于 vpms/config 目录下
     # --- 修改结束 ---
     volumes:
-      # 将主机当前目录挂载到容器的 /app，方便开发时的代码更新
-      - .:/app
-      # 确保 node_modules 在容器内独立，不被主机挂载覆盖
+      # 修改：將主機的 ./vpms 目錄掛載到容器的 /app
+      - ./vpms:/app
+      # 新增：將主機的 ./seeds 目錄掛載到容器的 /app/seeds
+      - ./seeds:/app/seeds
+      # 確保 node_modules 在容器內獨立，不被主機掛載覆蓋
       - /app/node_modules
     # --- 修改开始：注释掉此行以启用自动启动 ---
     # 这个命令是为了开发容器（Dev Container）而设置的，它会覆盖 Dockerfile 的 ENTRYPOINT 和 CMD。
     # 我们现在注释掉它，以便让 Dockerfile 中的 ENTRYPOINT 生效，从而自动运行迁移和启动应用。
-    # command: ["sh", "-c", "tail -f /dev/null"]
+    command: ["sh", "-c", "tail -f /dev/null"]
     # --- 修改结束 ---
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MySQL Data Display and Export</title>
     <!-- Link to the external CSS file -->
-    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="/css/main.css"> <!-- 修改：使用绝对路径 -->
     <style>
         /* Add some basic styling for the sort indicator */
         .sortable-header {
@@ -24,7 +24,7 @@
 </head>
 <body>
     <!-- Header -->
-    <object type="text/html" data="header.html" style="width:100%;border: none;"></object>
+    <object type="text/html" data="/header.html" style="width:100%;border: none;"></object> <!-- 修改：使用绝对路径 -->
 
     <div class="container">
         <h1>Read Data from MySQL Database</h1>
@@ -90,9 +90,9 @@
     </div>
 
     <!-- Footer -->
-    <object type="text/html" data="footer.html" style="width:100%; height:120px; border: none;"></object>
+    <object type="text/html" data="/footer.html" style="width:100%; height:120px; border: none;"></object> <!-- 修改：使用绝对路径 -->
 
     <!-- Introduce your JavaScript file -->
-    <script src="app.js"></script>
+    <script src="/js/app.js"></script> <!-- 修改：使用绝对路径 -->
 </body>
 </html>

@@ -5,9 +5,8 @@ FROM node:18-alpine
 # 將容器內的工作目錄設定為 /app
 WORKDIR /app
 
-# 將 package.json 和 package-lock.json (如果存在) 複製到工作目錄
-# 這有助於利用 Docker 的層緩存，如果依賴沒有改變，則不會重新安裝
-COPY package*.json ./
+# 修改这一行：从构建上下文的 'vpms/' 子目录复制 package.json
+COPY vpms/package*.json ./
 
 # 安裝 bash，因為 Alpine 映像可能預設不包含它
 RUN apk add --no-cache bash
@@ -20,10 +19,11 @@ RUN apk add --no-cache bash
 RUN npm install --omit=dev
 
 # 將應用程式的其餘程式碼複製到容器中
-# '.' 表示當前目錄 (Docker build context)
+# '.' 表示當前目錄 (Docker build context，即 vpms/)
 COPY . .
 
 # --- 新增：复制入口脚本并赋予执行权限 ---
+# docker-entrypoint.sh 现在位于构建上下文的根目录 (即 vpms/)
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["docker-entrypoint.sh"]
