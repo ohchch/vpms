@@ -9,11 +9,11 @@ WORKDIR /app
 # 這有助於利用 Docker 的層緩存，如果依賴沒有改變，則不會重新安裝
 COPY package*.json ./
 
-# 安裝 bash，因為 Alpine 映像可能預設不包含它，而 Cursor 需要 bash
+# 安裝 bash，因為 Alpine 映像可能預設不包含它
 RUN apk add --no-cache bash
 
-# 添加 Python 3 和 pip 環境
-RUN apk add --no-cache python3 py3-pip
+# 移除不再需要的 Python 环境
+# RUN apk add --no-cache python3 py3-pip
 
 # 安裝 Node.js 依賴
 # --omit=dev 表示不安裝開發依賴，以減小生產映像的大小
@@ -23,9 +23,15 @@ RUN npm install --omit=dev
 # '.' 表示當前目錄 (Docker build context)
 COPY . .
 
+# --- 新增：复制入口脚本并赋予执行权限 ---
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
+# --- 新增结束 ---
+
 # 暴露應用程式運行的端口 (在 server.js 中設定為 3000)
 EXPOSE 3000
 
 # 定義容器啟動時執行的命令
-# 這裡運行 npm start，它會執行 package.json 中定義的 "node server.js" 腳本
+# 这个命令现在会被传递给 docker-entrypoint.sh 脚本
 CMD ["npm", "start"]
