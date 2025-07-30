@@ -2,6 +2,13 @@
 const express = require('express');
 const path = require('path');
 const mysql = require('mysql2/promise'); // 保持使用 mysql2/promise
+require('dotenv').config(); // --- 新增：在最頂部加載 .env 文件中的環境變量 ---
+const fs = require('fs').promises; // --- 新增：引入文件系統模塊 ---
+
+// --- 新增：引入我們自己的通知模塊 ---
+const { sendEmailAlert } = require('./emailNotifier');
+const { sendTelegramAlert } = require('./telegramNotifier'); // 确保已导入
+
 
 const app = express();
 const port = 3000;
@@ -11,14 +18,15 @@ const ER_BAD_DB_ERROR = 1049;
 const ER_NO_SUCH_TABLE = 1146;
 
 app.use(express.static(path.join(__dirname, '')));
+app.use(express.json()); // --- 新增：用於解析 JSON 格式的請求體 ---
 
 // MySQL 資料庫連接配置
 const dbConfig = {
-    host: process.env.MYSQL_HOST || '172.11.88.82',
-    user: process.env.MYSQL_USER || 'vpmsadmin',
-    password: process.env.MYSQL_PASSWORD || 'Vpms@dmin',
-    database: process.env.MYSQL_DATABASE || 'VPMS',
-    port: process.env.MYSQL_PORT || 3306,
+    host: process.env.MYSQL_HOST,
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
+    port: process.env.MYSQL_PORT,
     // --- 新增：連接池配置 ---
     waitForConnections: true,  // 池滿時等待，而不是立即報錯
     connectionLimit: 10,       // 最大連接數，對於中小型應用 10 個通常足夠
@@ -54,6 +62,88 @@ try {
     process.exit(1); // 如果連池子都創建不了，直接退出應用
 }
 // ==========================================================
+
+// --- 新增：報警系統核心邏輯 ---
+const SETTINGS_FILE_PATH = path.join(__dirname, 'settings.json');
+let alarmState = {}; // 用於存儲每個監控項的報警狀態 (e.g., { voltageVa: 'NORMAL' | 'TRIGGERED' })
+
+// 檢查警報的函數
+async function checkAlarms() {
+    try {
+        // a. 加載報警設置
+        // 首先嘗試讀取設置，如果沒有設置，則無需查詢數據庫
+        const settingsData = await fs.readFile(SETTINGS_FILE_PATH, 'utf8');
+        const settings = JSON.parse(settingsData);
+        
+        // 檢查是否有任何閾值或收件人被設置，如果沒有則直接返回
+        if (Object.keys(settings).length === 0) {
+            return;
+        }
+
+        // b. 獲取最新數據
+        const [rows] = await pool.query('SELECT * FROM tbl_ndas1 ORDER BY datetime_insert DESC LIMIT 1');
+        if (rows.length === 0) return;
+        const latestData = rows[0];
+
+        // c. 逐一檢查閾值
+        for (const key in settings) {
+            // 只檢查以 'Threshold' 結尾的鍵，並確保它不是空的或 null
+            if (key.endsWith('Threshold') && settings[key]) {
+                const metricName = key.replace('Threshold', ''); // e.g., 'voltageVa'
+                
+                // 確保最新數據中存在對應的字段
+                if (latestData[metricName] !== undefined) {
+                    const threshold = parseFloat(settings[key]);
+                    const currentValue = parseFloat(latestData[metricName]);
+
+                    // 初始化狀態
+                    if (!alarmState[metricName]) {
+                        alarmState[metricName] = 'NORMAL';
+                    }
+
+                    // 檢查是否超限
+                    if (currentValue > threshold) {
+                        // 如果當前狀態是 NORMAL，則觸發警報並更新狀態
+                        if (alarmState[metricName] === 'NORMAL') {
+                            console.log(`警報觸發: ${metricName} 當前值 ${currentValue} 超過閾值 ${threshold}`);
+                            alarmState[metricName] = 'TRIGGERED'; // 更新狀態防止重複發送
+
+                            const subject = `[VPMS 警報] ${metricName} 超出閾值`;
+                            const message = `
+                                <h3>VPMS 警報通知</h3>
+                                <p><b>監控項:</b> ${metricName}</p>
+                                <p><b>當前值:</b> ${currentValue}</p>
+                                <p><b>設定閾值:</b> ${threshold}</p>
+                                <p><b>時間:</b> ${new Date(latestData.datetime_insert).toLocaleString()}</p>
+                            `;
+                            
+                            // 發送通知 (使用 settings 中的收件人列表)
+                            sendEmailAlert(subject, message, settings.emailRecipients);
+                            
+                            // --- 修改：使用 settings.json 中的 Telegram 收件人列表 ---
+                            if (settings.telegramRecipients && settings.telegramRecipients.length > 0) {
+                                sendTelegramAlert(message, settings.telegramRecipients);
+                            }
+                        }
+                    } else {
+                        // 如果值已恢復正常，重置狀態
+                        if (alarmState[metricName] === 'TRIGGERED') {
+                            console.log(`狀態恢復: ${metricName} 當前值 ${currentValue} 已恢復正常。`);
+                            alarmState[metricName] = 'NORMAL';
+                            // (可選) 在這裡可以發送一條恢復正常的通知
+                        }
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        // 如果 settings.json 不存在或為空導致解析失敗，這是正常情況，靜默處理
+        if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) {
+            console.error("檢查警報時出錯:", error);
+        }
+    }
+}
+// --- 新增結束 ---
 
 
 // API 端點：獲取 MySQL 中的資料
@@ -205,8 +295,144 @@ app.get('/api/data', async (req, res) => {
     }
 });
 
+// --- 新增：用於管理報警設置的 API 端點 ---
+
+// 獲取報警設置 API
+app.get('/api/settings', async (req, res) => {
+    try {
+        const data = await fs.readFile(SETTINGS_FILE_PATH, 'utf8');
+        res.json(JSON.parse(data));
+    } catch (error) {
+        // 如果文件不存在，返回空對象，前端頁面不會報錯
+        if (error.code === 'ENOENT') {
+            res.json({});
+        } else {
+            console.error('讀取設置文件失敗:', error);
+            res.status(500).json({ error: '無法讀取設置' });
+        }
+    }
+});
+
+// 保存報警設置 API
+app.post('/api/settings', async (req, res) => {
+    try {
+        const receivedSettings = req.body;
+        const sanitizedSettings = {};
+
+        // 1. 验证和清理阈值
+        const thresholdKeys = [
+            'voltageVaThreshold', 'voltageVbThreshold', 'voltageVcThreshold',
+            'currentIaThreshold', 'currentIbThreshold', 'currentIcThreshold',
+            'temperatureThreshold', 'vacuumThreshold', 'vibrationXThreshold',
+            'vibrationYThreshold', 'vibrationZThreshold'
+        ];
+
+        for (const key of thresholdKeys) {
+            if (receivedSettings[key] !== null && receivedSettings[key] !== undefined && receivedSettings[key] !== '') {
+                const numValue = parseFloat(receivedSettings[key]);
+                if (!isNaN(numValue)) {
+                    sanitizedSettings[key] = numValue;
+                } else {
+                    console.warn(`Invalid non-numeric value for ${key}: ${receivedSettings[key]}`);
+                }
+            } else {
+                sanitizedSettings[key] = null; // 明确设置为空
+            }
+        }
+
+        // 2. 清理邮件收件人
+        if (receivedSettings.emailRecipients && typeof receivedSettings.emailRecipients === 'string') {
+            sanitizedSettings.emailRecipients = receivedSettings.emailRecipients.split(',').map(e => e.trim()).filter(e => e);
+        } else {
+            sanitizedSettings.emailRecipients = [];
+        }
+
+        // 3. 清理 Telegram 收件人 (与 email 保持一致)
+        if (receivedSettings.telegramRecipients && typeof receivedSettings.telegramRecipients === 'string') {
+            sanitizedSettings.telegramRecipients = receivedSettings.telegramRecipients.split(',').map(e => e.trim()).filter(e => e);
+        } else {
+            sanitizedSettings.telegramRecipients = [];
+        }
+
+        await fs.writeFile(SETTINGS_FILE_PATH, JSON.stringify(sanitizedSettings, null, 2), 'utf8');
+        res.status(200).json({ message: '設置已成功保存' });
+    } catch (error) {
+        console.error('寫入設置文件失敗:', error);
+        res.status(500).json({ error: '無法保存設置' });
+    }
+});
+// --- 新增結束 ---
+
+// --- 新增：用於測試郵件發送功能的 API 端點 ---
+app.post('/api/test-email', async (req, res) => {
+    const { recipient, subject, message } = req.body;
+
+    if (!recipient) {
+        return res.status(400).json({ error: 'Recipient email is required.' });
+    }
+
+    console.log(`收到測試郵件請求，發送至: ${recipient}`);
+
+    try {
+        // sendEmailAlert 期望一個數組，所以我們將單個收件人放入數組中
+        await sendEmailAlert(subject || 'Test Email', message || 'This is a test.', [recipient]);
+        res.status(200).json({ message: `Test email successfully sent to ${recipient}.` });
+    } catch (error) {
+        console.error('發送測試郵件失敗:', error);
+        res.status(500).json({ error: 'Failed to send test email. Check server logs for details.' });
+    }
+});
+// --- 新增結束 ---
+
+// --- 新增：用於測試 Telegram 發送功能的 API 端點 ---
+app.post('/api/test-telegram', async (req, res) => {
+    const { chatIds, message } = req.body;
+
+    if (!chatIds || !message) {
+        return res.status(400).json({ error: '请求正文中缺少 chatIds 或 message。' });
+    }
+
+    try {
+        // 前端传来的 chatIds 是一个字符串，需要分割成数组
+        const chatIdsArray = chatIds.split(',').map(id => id.trim()).filter(id => id);
+        if (chatIdsArray.length === 0) {
+             return res.status(400).json({ error: '请提供至少一个有效的 Chat ID。' });
+        }
+
+        // 使用 telegramNotifier.js 中的函数发送消息
+        // sendTelegramAlert 函数已处理并行发送和日志记录
+        await sendTelegramAlert(message, chatIdsArray);
+        
+        res.status(200).json({ message: '测试 Telegram 消息已成功发送到队列。请检查服务器日志以获取交付状态。' });
+    } catch (error) {
+        console.error('发送测试 Telegram 消息失败:', error);
+        res.status(500).json({ error: '发送测试 Telegram 消息失败。' });
+    }
+});
+
+// --- 新增：API 404 Not Found 中間件 ---
+// 這個中間件應該放在所有 API 路由定義之後。
+// 它會捕獲所有未匹配到的 /api/... 請求，並返回一個標準的 JSON 錯誤。
+app.use('/api/*', (req, res) => {
+    res.status(404).json({ error: `API 端點未找到: ${req.method} ${req.originalUrl}` });
+});
+
+
 // 啟動 Express 伺服器
 app.listen(port, () => {
-    console.log(`Node.js 伺服器運行在 http://localhost:${port}`);
-    console.log('請打開瀏覽器並訪問 http://localhost:3000/index.html 查看應用程式。');
+    const serverUrl = `http://localhost:${port}`;
+    console.log(`Node.js 伺服器運行在 ${serverUrl}`);
+    console.log(`您可以嘗試在終端中運行: "$BROWSER" ${serverUrl}/index.html`);
+
+    // --- 修改：使用更健壯的 setTimeout 循環來代替 setInterval ---
+    const runAlarmChecks = () => {
+        checkAlarms()
+            .catch(err => console.error("Alarm check cycle failed:", err))
+            .finally(() => {
+                setTimeout(runAlarmChecks, 5000); // 无论成功或失败，5秒后再次执行
+            });
+    };
+    
+    // 启动第一次检查
+    runAlarmChecks();
 });

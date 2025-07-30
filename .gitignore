@@ -17,6 +17,9 @@ pids
 .env.local
 .env.*.local
 
+# User-specific settings file
+settings.json
+
 # VS Code specific
 /.vscode
 
