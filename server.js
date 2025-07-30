@@ -5,9 +5,17 @@ const mysql = require('mysql2/promise'); // 保持使用 mysql2/promise
 require('dotenv').config(); // --- 新增：在最頂部加載 .env 文件中的環境變量 ---
 const fs = require('fs').promises; // --- 新增：引入文件系統模塊 ---
 
+// --- 新增：引入会话管理和密码哈希模块 ---
+const session = require('express-session');
+const bcrypt = require('bcrypt');
+const saltRounds = 10; // 用于 bcrypt 的 salt 轮数，数值越高越安全但越慢
+
 // --- 新增：引入我們自己的通知模塊 ---
 const { sendEmailAlert } = require('./emailNotifier');
 const { sendTelegramAlert } = require('./telegramNotifier'); // 确保已导入
+
+// --- 新增：引入我们自己的中间件 ---
+const { isAuthenticated, requirePermission } = require('./middleware');
 
 
 const app = express();
@@ -19,6 +27,56 @@ const ER_NO_SUCH_TABLE = 1146;
 
 app.use(express.static(path.join(__dirname, '')));
 app.use(express.json()); // --- 新增：用於解析 JSON 格式的請求體 ---
+
+// --- 新增：配置 express-session 中间件 ---
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'a-default-secret-key-for-development', // 强烈建议在 .env 中设置
+    resave: false, // 强制会话在没有变动时也保存，设为 false
+    saveUninitialized: false, // 强制未初始化的会话保存，设为 false
+    cookie: {
+        secure: false, // 在生产环境中应设为 true，并使用 HTTPS
+        httpOnly: true, // 防止客户端脚本访问 cookie
+        maxAge: 24 * 60 * 60 * 1000 // cookie 有效期 24 小时
+    }
+}));
+
+// --- 新增：受保护的页面路由 ---
+// 将受保护的页面路由放在 express.static 之前，以确保它们被优先处理
+
+// 这些页面只需要登录即可访问 (Operator 和 Admin 都可以)
+app.get('/dashboard.html', isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
+app.get('/charts.html', isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, 'charts.html'));
+});
+app.get('/index.html', isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// 这些页面需要特定的权限 (理论上只有 Admin 可以访问)
+app.get('/settings.html', requirePermission('settings:read'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'settings.html'));
+});
+app.get('/test.html', requirePermission('notification:test'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'test.html'));
+});
+
+
+// 静态文件服务，对于未被上面路由捕获的请求，会尝试从文件系统提供服务
+// 例如: login.html, register.html, CSS, JS 文件等
+app.use(express.static(path.join(__dirname, '')));
+app.use(express.json()); // --- 新增：用於解析 JSON 格式的請求體 ---
+
+// --- 新增：引入会话管理和密码哈希模块 ---
+// const session = require('express-session');
+// const bcrypt = require('bcrypt');
+// const saltRounds = 10; // 用于 bcrypt 的 salt 轮数，数值越高越安全但越慢
+
+// --- 新增：引入我們自己的通知模塊 ---
+// const { sendEmailAlert } = require('./emailNotifier');
+// const { sendTelegramAlert } = require('./telegramNotifier'); // 确保已导入
+
 
 // MySQL 資料庫連接配置
 const dbConfig = {
@@ -62,6 +120,20 @@ try {
     process.exit(1); // 如果連池子都創建不了，直接退出應用
 }
 // ==========================================================
+
+// --- 新增：认证和授权中间件 ---
+// const isAuthenticated = (req, res, next) => {
+//     if (req.session.user) {
+//         return next();
+//     }
+//     // 如果是 API 请求，返回 401 JSON 错误
+//     if (req.originalUrl.startsWith('/api/')) {
+//         return res.status(401).json({ error: 'Unauthorized: You must be logged in.' });
+//     }
+//     // 如果是页面请求，重定向到登录页
+//     res.redirect('/login.html');
+// };
+
 
 // --- 新增：報警系統核心邏輯 ---
 const SETTINGS_FILE_PATH = path.join(__dirname, 'settings.json');
@@ -145,152 +217,231 @@ async function checkAlarms() {
 }
 // --- 新增結束 ---
 
+// --- 新增：用户认证 API 端点 ---
+
+// 用户注册
+app.post('/api/register', async (req, res) => {
+    const { username, password, email } = req.body;
+
+    if (!username || !password || !email) {
+        return res.status(400).json({ error: 'Username, email, and password are required.' });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // 对密码进行哈希处理
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+
+        let roleId;
+        const [userCountResult] = await connection.query('SELECT COUNT(*) as count FROM users');
+        const userCount = userCountResult[0].count;
+
+        if (userCount === 0) {
+            // 如果是第一个注册的用户，则自动赋予 'Admin' 角色
+            const [adminRole] = await connection.query('SELECT id FROM roles WHERE name = ?', ['Admin']);
+            if (adminRole.length === 0) {
+                throw new Error('Admin role not found in database. Please run migrations and seeds.');
+            }
+            roleId = adminRole[0].id;
+            console.log(`First user ${username} registered and assigned 'Admin' role.`);
+        } else {
+            // 默认新用户为 'Operator' 角色
+            const [operatorRole] = await connection.query('SELECT id FROM roles WHERE name = ?', ['Operator']);
+            if (operatorRole.length === 0) {
+                throw new Error('Operator role not found in database. Please run migrations and seeds.');
+            }
+            roleId = operatorRole[0].id;
+            console.log(`New user ${username} registered and assigned 'Operator' role.`);
+        }
+
+        // 将新用户插入数据库
+        const [result] = await connection.query(
+            'INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)',
+            [username, passwordHash, email]
+        );
+        const newUserId = result.insertId;
+
+        // 插入用户角色
+        await connection.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [newUserId, roleId]);
+
+        // 注册成功，返回 201 Created 和 JSON 响应
+        res.status(201).json({ success: true, message: "Registration successful. Please log in." });
+
+    } catch (error) {
+        console.error('Registration failed:', error);
+
+        // 检查是否为重复条目错误 (ER_DUP_ENTRY)
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'Username or email already exists.' });
+        }
+        
+        // 如果是自定义的错误信息（例如角色未找到），则直接返回
+        if (error.message.includes('role not found')) {
+            return res.status(500).json({ error: error.message });
+        }
+        
+        // 其他错误返回通用 500 错误
+        res.status(500).json({ error: 'Internal server error during registration.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+
+// 用户登录
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const [users] = await connection.query('SELECT * FROM users WHERE username = ?', [username]);
+
+        if (users.length === 0) {
+            return res.status(401).json({ error: 'Invalid username or password.' });
+        }
+
+        const user = users[0];
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+        if (!passwordMatch) {
+            return res.status(401).json({ error: 'Invalid username or password.' });
+        }
+
+        // --- 核心修复：登录成功后，查询并附加用户权限到会话中 ---
+        const [permissionsResult] = await connection.query(`
+            SELECT p.name
+            FROM users u
+            JOIN user_roles ur ON u.id = ur.user_id
+            JOIN roles r ON ur.role_id = r.id
+            JOIN role_permissions rp ON r.id = rp.role_id
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE u.id = ?
+        `, [user.id]);
+
+        const userPermissions = permissionsResult.map(row => row.name);
+
+        // 在 session 中存储用户信息和权限列表
+        req.session.user = {
+            id: user.id,
+            username: user.username,
+            permissions: userPermissions // 附加权限列表
+        };
+        
+        console.log(`User '${user.username}' logged in with permissions:`, userPermissions); // 增加日志方便调试
+
+        res.status(200).json({ message: 'Login successful.' });
+
+    } catch (error) {
+        console.error('Login failed:', error);
+        res.status(500).json({ error: 'Internal server error during login.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// 用户登出
+app.post('/api/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            return res.status(500).json({ error: 'Could not log out, please try again.' });
+        }
+        res.clearCookie('connect.sid'); // 清除 cookie
+        res.status(200).json({ message: 'Logout successful.' });
+    });
+});
+
+// 用户登出路由 (GET 请求，用于页面跳转)
+app.get('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            console.error('Session destruction error:', err);
+            return res.status(500).send('Could not log out.');
+        }
+        res.clearCookie('connect.sid'); // 清除 cookie
+        res.redirect('/login.html'); // 登出成功重定向到登录页
+    });
+});
+
+// 获取当前用户会话信息的 API
+app.get('/api/session/me', isAuthenticated, (req, res) => {
+    // isAuthenticated 确保了只有登录用户能访问
+    // 我们的会话结构是 req.session.user = { id, username, permissions }
+    if (req.session.user) {
+        res.json({
+            username: req.session.user.username,
+            permissions: req.session.user.permissions || []
+        });
+    } else {
+        // 理论上 isAuthenticated 会阻止这种情况，但作为安全备份
+        res.status(401).json({ error: 'Not authenticated' });
+    }
+});
 
 // API 端點：獲取 MySQL 中的資料
-app.get('/api/data', async (req, res) => {
+// --- 修改：使用 requirePermission 中间件进行权限检查 ---
+app.get('/api/data', requirePermission('data:read'), async (req, res) => {
     let connection; 
 
     try {
-        // 從連接池獲取一個連接
         connection = await pool.getConnection();
 
-        // --- 新增：打印原始请求参数 ---
-        console.log('Backend Received Query Parameters:', req.query);
-        // --- 新增结束 ---
+        // 1. 解析并验证分页和排序参数
+        const limit = parseInt(req.query.limit, 10) || 20; // 每页数量，默认为 20
+        const offset = parseInt(req.query.offset, 10) || 0; // 偏移量，默认为 0
+        const orderBy = req.query.orderBy === 'ASC' ? 'ASC' : 'DESC'; // 安全地处理排序方向
 
-        // 從查詢參數中獲取 limit, offset, startDate, endDate, startTime, endTime
-        const limit = req.query.limit ? parseInt(req.query.limit) : null;
-        const offset = parseInt(req.query.offset) || 0;
-        const startDate = req.query.startDate;
-        const endDate = req.query.endDate;
-        const startTime = req.query.startTime;
-        const endTime = req.query.endTime;
-        const orderBy = req.query.orderBy === 'DESC' ? 'DESC' : 'ASC'; // 驗證輸入，更安全
+        // 2. 构建动态的 WHERE 子句和参数，防止 SQL 注入
+        const whereClauses = [];
+        const params = [];
 
-        let baseQuery = `FROM tbl_ndas1`;
-        let whereClause = '';
-        let conditions = [];
-        let queryParams = [];
-
-        let minDateTimeString = null;
-        let maxDateTimeString = null;
-
-        // 構建最小日期時間字符串
-        if (startDate) {
-            // 如果 startTime 为空，则默认为 '00:00'
-            const tempMinDate = new Date(`${startDate}T${startTime || '00:00'}:00`);
-            if (!isNaN(tempMinDate.getTime())) { // 检查日期是否有效
-                minDateTimeString = tempMinDate.toISOString().slice(0, 19).replace('T', ' ');
-            } else {
-                console.error(`Error: Invalid startDate or startTime provided. startDate='${startDate}', startTime='${startTime}'`);
-                // 如果日期无效，可以考虑直接返回错误或忽略日期条件
-                // 这里选择忽略无效的日期条件，让 minDateTimeString 保持 null
-            }
+        if (req.query.startDate) {
+            const startDateTime = `${req.query.startDate} ${req.query.startTime || '00:00:00'}`;
+            whereClauses.push('datetime_insert >= ?');
+            params.push(startDateTime);
+        }
+        if (req.query.endDate) {
+            const endDateTime = `${req.query.endDate} ${req.query.endTime || '23:59:59'}`;
+            whereClauses.push('datetime_insert <= ?');
+            params.push(endDateTime);
         }
 
-        // 構建最大日期時間字符串
-        if (endDate) {
-            // 如果 endTime 为空，则默认为 '23:59'
-            const tempMaxDate = new Date(`${endDate}T${endTime || '23:59'}:59`);
-            if (!isNaN(tempMaxDate.getTime())) { // 检查日期是否有效
-                maxDateTimeString = tempMaxDate.toISOString().slice(0, 19).replace('T', ' ');
-            } else {
-                console.error(`Error: Invalid endDate or endTime provided. endDate='${endDate}', endTime='${endTime}'`);
-            }
-        } else if (startDate && !endDate) {
-            // 如果只提供了开始日期而没有结束日期，则表示搜索当天
-            // 此时 endTime 应该基于 startDate
-            const tempMaxDate = new Date(`${startDate}T${endTime || '23:59'}:59`);
-            if (!isNaN(tempMaxDate.getTime())) { // 检查日期是否有效
-                maxDateTimeString = tempMaxDate.toISOString().slice(0, 19).replace('T', ' ');
-            } else {
-                console.error(`Error: Invalid startDate or endTime provided for single-day search. startDate='${startDate}', endTime='${endTime}'`);
-            }
-        }
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-        // --- 新增：打印构建的日期时间字符串 ---
-        console.log('Backend Constructed DateTimes:', {
-            minDateTimeString: minDateTimeString,
-            maxDateTimeString: maxDateTimeString
-        });
-        // --- 新增结束 ---
+        // 3. 执行两个查询：一个获取总数，一个获取当页数据
+        //    使用 Promise.all 并行执行，提升效率
+        const [totalCountResult, dataResult] = await Promise.all([
+            // 查询总记录数
+            connection.query(`SELECT COUNT(*) as totalCount FROM tbl_ndas1 ${whereSql}`, params),
+            // 查询当前页的数据
+            connection.query(`SELECT * FROM tbl_ndas1 ${whereSql} ORDER BY datetime_insert ${orderBy} LIMIT ? OFFSET ?`, [...params, limit, offset])
+        ]);
 
-        // 添加日期/時間條件到查詢中
-        if (minDateTimeString && maxDateTimeString) {
-            conditions.push(`datetime_insert BETWEEN ? AND ?`);
-            queryParams.push(minDateTimeString, maxDateTimeString);
-        } else if (minDateTimeString) {
-            conditions.push(`datetime_insert >= ?`);
-            queryParams.push(minDateTimeString);
-        } else if (maxDateTimeString) {
-            conditions.push(`datetime_insert <= ?`);
-            queryParams.push(maxDateTimeString);
-        }
+        const totalCount = totalCountResult[0][0].totalCount;
+        const data = dataResult[0];
 
-        if (conditions.length > 0) {
-            whereClause = ` WHERE ` + conditions.join(' AND ');
-        }
-
-        // --- 新增：打印最终的 SQL 条件和参数 ---
-        console.log('Backend SQL Conditions:', conditions);
-        console.log('Backend SQL Query Parameters:', queryParams);
-        // --- 新增结束 ---
-
-        // 1. 獲取總資料筆數
-        const countQuery = `SELECT COUNT(*) AS totalCount ${baseQuery}${whereClause}`;
-        const [countRows] = await connection.execute(countQuery, queryParams);
-        const totalCount = countRows[0].totalCount;
-
-        // 2. 獲取分頁資料
-        let dataQuery = `SELECT id, datetime_insert, pump_id, va, vb, vc, ia, ib, ic, pres1, pres2, pres3, vibx, viby, vibz, energy_consumption, temperature, power ${baseQuery}${whereClause} ORDER BY datetime_insert ${orderBy}`;
-        let dataQueryParams = [...queryParams];
-
-        if (limit !== null) {
-            dataQuery += ` LIMIT ? OFFSET ?`;
-            dataQueryParams.push(limit, offset);
-        }
-
-        const [rows] = await connection.execute(dataQuery, dataQueryParams);
-
+        // 4. 返回结构化的 JSON 响应
         res.json({
-            data: rows,
+            data: data,
             totalCount: totalCount
         });
 
     } catch (error) {
-        // 始终在服务器端打印完整的错误对象，以便详细调试
-        console.error('從資料庫獲取資料失敗:', error.message);
-        console.error('Full Error Object:', error); 
-
-        // 根据错误类型返回不同的 HTTP 状态码和错误信息给客户端
+        console.error('Error fetching data from MySQL:', error);
+        // 根据错误类型返回不同的状态码
         if (error.code === ER_NO_SUCH_TABLE || error.code === ER_BAD_DB_ERROR) {
-            // 404 Not Found: 表格或資料庫不存在
-            res.status(404).json({ 
-                error: '找不到表格或資料庫。請檢查資料庫配置或表格名稱。',
-                details: error.message,
-                errorCode: error.code 
-            });
-        } else if (error.code) {
-            // 500 Internal Server Error: 其他已知的 MySQL 错误 (例如连接问题, 权限问题, SQL 语法错误等)
-            res.status(500).json({
-                error: `資料庫操作失敗: ${error.message}`,
-                details: `MySQL 錯誤代碼: ${error.code}`,
-                errorCode: error.code,
-                // 如果需要，可以添加更多错误信息，但要小心不要暴露敏感数据
-                // sqlMessage: error.sqlMessage // 谨慎暴露，可能包含敏感信息
-            });
+            res.status(503).json({ error: 'Database service unavailable or table not found.' });
         } else {
-            // 500 Internal Server Error: 任何其他未预期的服务器内部错误 (例如代码逻辑错误, 网络问题等)
-            res.status(500).json({
-                error: `伺服器內部錯誤: ${error.message}`,
-                details: '請檢查伺服器日誌以獲取更多信息。'
-            });
+            res.status(500).json({ error: 'Internal server error while fetching data.' });
         }
     } finally {
-        // 最重要的一步：無論 try 塊是成功還是失敗，
-        // 只要 connection 成功獲取了，就必須將其歸還給池子。
         if (connection) {
-            connection.release();
+            connection.release(); // 将连接归还给连接池
         }
     }
 });
@@ -298,7 +449,8 @@ app.get('/api/data', async (req, res) => {
 // --- 新增：用於管理報警設置的 API 端點 ---
 
 // 獲取報警設置 API
-app.get('/api/settings', async (req, res) => {
+// --- 修改：使用 requirePermission 中间件进行权限检查 ---
+app.get('/api/settings', requirePermission('settings:read'), async (req, res) => {
     try {
         const data = await fs.readFile(SETTINGS_FILE_PATH, 'utf8');
         res.json(JSON.parse(data));
@@ -314,7 +466,8 @@ app.get('/api/settings', async (req, res) => {
 });
 
 // 保存報警設置 API
-app.post('/api/settings', async (req, res) => {
+// --- 修改：使用 requirePermission 中间件进行权限检查 ---
+app.post('/api/settings', requirePermission('settings:update'), async (req, res) => {
     try {
         const receivedSettings = req.body;
         const sanitizedSettings = {};
@@ -364,7 +517,8 @@ app.post('/api/settings', async (req, res) => {
 // --- 新增結束 ---
 
 // --- 新增：用於測試郵件發送功能的 API 端點 ---
-app.post('/api/test-email', async (req, res) => {
+// --- 修改：使用 requirePermission 中间件进行权限检查 ---
+app.post('/api/test-email', requirePermission('notification:test'), async (req, res) => {
     const { recipient, subject, message } = req.body;
 
     if (!recipient) {
@@ -385,7 +539,8 @@ app.post('/api/test-email', async (req, res) => {
 // --- 新增結束 ---
 
 // --- 新增：用於測試 Telegram 發送功能的 API 端點 ---
-app.post('/api/test-telegram', async (req, res) => {
+// --- 修改：使用 requirePermission 中间件进行权限检查 ---
+app.post('/api/test-telegram', requirePermission('notification:test'), async (req, res) => {
     const { chatIds, message } = req.body;
 
     if (!chatIds || !message) {
@@ -406,9 +561,10 @@ app.post('/api/test-telegram', async (req, res) => {
         res.status(200).json({ message: '测试 Telegram 消息已成功发送到队列。请检查服务器日志以获取交付状态。' });
     } catch (error) {
         console.error('发送测试 Telegram 消息失败:', error);
-        res.status(500).json({ error: '发送测试 Telegram 消息失败。' });
+        res.status(500).json({ error: '发送测试 Telegram 消消息失败。' });
     }
 });
+
 
 // --- 新增：API 404 Not Found 中間件 ---
 // 這個中間件應該放在所有 API 路由定義之後。
@@ -435,4 +591,57 @@ app.listen(port, () => {
     
     // 启动第一次检查
     runAlarmChecks();
+});
+
+// 用户登录路由
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).send('Username and password are required.');
+    }
+
+    try {
+        // 1. 根据用户名查找用户
+        const [users] = await db.execute('SELECT id, username, password_hash FROM users WHERE username = ?', [username]);
+
+        if (users.length === 0) {
+            // 模糊错误信息，防止用户名枚举
+            return res.status(401).send('Invalid username or password.');
+        }
+
+        const user = users[0];
+
+        // 2. 比较密码
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+
+        if (!isMatch) {
+            return res.status(401).send('Invalid username or password.');
+        }
+
+        // 3. 登录成功：查询用户所有权限并存入会话
+        const [permissionsResult] = await db.execute(`
+            SELECT p.name
+            FROM users u
+            JOIN user_roles ur ON u.id = ur.user_id
+            JOIN roles r ON ur.role_id = r.id
+            JOIN role_permissions rp ON r.id = rp.role_id
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE u.id = ?
+        `, [user.id]);
+
+        const userPermissions = permissionsResult.map(row => row.name);
+
+        // 4. 将用户信息和权限存入会话
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.permissions = userPermissions; // 存储权限列表
+
+        // console.log(`User ${user.username} logged in with permissions:`, userPermissions); // 调试用
+
+        res.redirect('/dashboard.html'); // 登录成功重定向到仪表盘
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).send('Server error during login.');
+    }
 });

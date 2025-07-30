@@ -15,109 +15,75 @@ const datetimeHeader = document.getElementById('datetimeHeader');
 const sortIndicator = datetimeHeader.querySelector('.sort-indicator');
 
 /**
+ * Updates the pagination controls based on the total number of items.
+ * @param {number} totalCount - The total number of items from the backend.
+ */
+function updatePaginationControls(totalCount) {
+    const pageInfoSpan = document.getElementById('pageInfo');
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const pageNumberInput = document.getElementById('pageNumberInput');
+
+    totalPages = totalCount > 0 ? Math.ceil(totalCount / itemsPerPage) : 1;
+
+    pageInfoSpan.textContent = `Page ${currentPage} / ${totalPages}`;
+    pageNumberInput.value = currentPage;
+    pageNumberInput.max = totalPages; // Set max value for the input
+
+    prevPageBtn.disabled = (currentPage === 1);
+    nextPageBtn.disabled = (currentPage >= totalPages);
+}
+
+
+/**
  * Fetches data from the backend API and displays it in the table.
  */
 async function fetchDataAndDisplay() {
     const dataTableBody = document.querySelector('#dataTable tbody');
-    const pageInfoSpan = document.getElementById('pageInfo');
-    const prevPageBtn = document.getElementById('prevPageBtn');
-    const nextPageBtn = document.getElementById('nextPageBtn');
-    const pageNumberInput = document.getElementById('pageNumberInput'); // Get the jump to page input box
+    dataTableBody.innerHTML = '<tr><td colspan="18" style="text-align: center;">Loading data...</td></tr>';
 
-    // Display loading message, colspan is set to 18 to match the number of table columns (original 15 + 3 new columns)
-    dataTableBody.innerHTML = '<tr><td colspan="18" style="text-align: center;">Loading data...</td></tr>'; // Changed colspan to 18
-    pageInfoSpan.textContent = `Page ${currentPage} / ...`; // Temporarily display
-
-    // Calculate offset based on current page number
     const offset = (currentPage - 1) * itemsPerPage;
+    let queryString = `/api/data?limit=${itemsPerPage}&offset=${offset}&orderBy=${currentSortOrder}`;
+    if (currentStartDate) queryString += `&startDate=${currentStartDate}`;
+    if (currentEndDate) queryString += `&endDate=${currentEndDate}`;
+    if (currentStartTime) queryString += `&startTime=${currentStartTime}`;
+    if (currentEndTime) queryString += `&endTime=${currentEndTime}`;
 
-    // Construct query string
-    let queryString = `/api/data?limit=${itemsPerPage}&offset=${offset}`;
-    // Changed from currentSearchDate to currentStartDate
-    if (currentStartDate) {
-        queryString += `&startDate=${currentStartDate}`;
-    }
-    // New: If there is a current end date, also pass it to the request
-    if (currentEndDate) {
-        queryString += `&endDate=${currentEndDate}`;
-    }
-    // If there is a current search time, also pass it to the request
-    if (currentStartTime) {
-        queryString += `&startTime=${currentStartTime}`;
-    }
-    if (currentEndTime) {
-        queryString += `&endTime=${currentEndTime}`;
-    }
-    queryString += `&orderBy=${currentSortOrder}`; // Add sort order to the query
-
-    // --- 新增：打印前端搜索参数和查询字符串 ---
-    console.log('Frontend Search Parameters:', {
-        startDate: currentStartDate,
-        endDate: currentEndDate,
-        startTime: currentStartTime,
-        endTime: currentEndTime,
-        orderBy: currentSortOrder,
-        limit: itemsPerPage,
-        offset: offset
-    });
     console.log('Frontend Query String:', queryString);
-    // --- 新增结束 ---
 
     try {
         const response = await fetch(queryString);
+
+        // --- 核心修改：处理认证和授权错误 ---
+        // 1. 检查 401 Unauthorized 错误
+        if (response.status === 401) {
+            const errorMessage = "User not authenticated. Please log in.";
+            console.error(errorMessage);
+            // 在表格中显示错误信息，并提供登录链接
+            dataTableBody.innerHTML = `<tr><td colspan="18" style="color: red; text-align: center;">${errorMessage} <a href="/login.html">Login here</a>.</td></tr>`;
+            updatePaginationControls(0); // Reset pagination
+            return;
+        }
+
+        // 2. 检查其他非成功响应 (如 403 Forbidden, 500 Internal Server Error)
         if (!response.ok) {
-            const errorData = await response.json();
-            if (errorData && errorData.error === 'Table or database not found.') {
-                throw new Error('Table or database not found.');
-            } else {
-                // --- 改进：更详细的错误信息 ---
-                throw new Error(`HTTP Error! Status code: ${response.status}. Details: ${errorData.error || 'Unknown error from server'}`);
-            }
+            // 后端现在应该总是返回 JSON 格式的错误，所以我们可以安全地解析它
+            const errorData = await response.json().catch(() => ({ error: 'Could not parse error response from server.' }));
+            throw new Error(`HTTP Error! Status: ${response.status}. Details: ${errorData.error || 'An unknown server error occurred.'}`);
         }
-        // Parse the new response format: includes data and totalCount
+        // --- 修改结束 ---
+
         const result = await response.json();
-        const data = result.data;
-        const totalCount = result.totalCount;
+        currentData = result.data;
 
-        // Calculate total pages
-        totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
-
-        // If the current page number exceeds the maximum page number and it's not the first page, set the page number to the maximum page number and reload
-        if (currentPage > totalPages && totalPages > 0) {
-            console.log(`Requested page ${currentPage} is out of range, jumping to the last page ${totalPages}`);
-            currentPage = totalPages;
-            pageNumberInput.value = totalPages; // Update the input box value
-            // Re-send the request to get data for the correct page
-            // Use return here to avoid executing the display logic below after the current function finishes
-            // because the new fetchDataAndDisplay() will handle the display
-            return fetchDataAndDisplay();
-        }
-
-
-        // Store current data for CSV export
-        currentData = data;
-
-        // Display data in the table
         displayDataInTable(currentData);
-
-        // Update page information
-        pageInfoSpan.textContent = `Page ${currentPage} / ${totalPages}`;
-        pageNumberInput.value = currentPage; // Ensure the input box shows the current page number
-
-        // Enable/disable pagination buttons based on current page number and total pages
-        prevPageBtn.disabled = (currentPage === 1);
-        nextPageBtn.disabled = (currentPage === totalPages); // Disable next page only when current page number equals total pages
+        updatePaginationControls(result.totalCount);
 
     } catch (error) {
         console.error("Error fetching data:", error);
-        // --- 改进：更详细的错误信息显示给用户 ---
-        let errorMessage = `Failed to load data. Please check the backend server and MySQL database status. Error details: ${error.message}`;
-        alert(errorMessage); // 弹窗提示用户
-        // Update colspan to 18 for error message as well
+        let errorMessage = `Failed to load data. Details: ${error.message}`;
         dataTableBody.innerHTML = `<tr><td colspan="18" style="color: red; text-align: center;">${errorMessage}</td></tr>`;
-        pageInfoSpan.textContent = `Page ${currentPage} (Error)`;
-        prevPageBtn.disabled = true;
-        nextPageBtn.disabled = true;
+        updatePaginationControls(0); // Reset pagination on error
     }
 }
 
